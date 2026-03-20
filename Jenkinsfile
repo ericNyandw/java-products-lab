@@ -10,7 +10,7 @@ pipeline {
         APP_NAME = 'java-products-lab'
         JAVA_VERSION = '17'
         BUILD_VERSION = "${env.BUILD_NUMBER}"
-        SONAR_PROJECT_KEY = 'java-products-lab'
+        SONAR_PROJECT_KEY = 'Java-Products-Lab'
     }
 
     stages {
