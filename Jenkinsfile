@@ -3,13 +3,13 @@ pipeline {
 
     tools {
         jdk 'JDK17'
-        maven 'MAVEN_3.6.3'
+        maven 'Maven3.9'
     }
 
     environment {
-        // Variables d'environnement globales
         APP_NAME = 'java-products-lab'
         BUILD_VERSION = "${env.BUILD_NUMBER}"
+        SONAR_PROJECT_KEY = 'java-products-lab'
     }
 
     stages {
@@ -33,10 +33,39 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                echo '================================================'
+                echo 'ETAPE 3 : Analyse de la qualite du code'
+                echo '================================================'
+                withSonarQubeEnv('SonarQube-Local') {
+                    bat """
+                        mvn sonar:sonar ^
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} ^
+                        -Dsonar.projectName="${APP_NAME}" ^
+                        -Dsonar.projectVersion=${BUILD_VERSION}
+                    """
+                }
+                echo 'Analyse SonarQube terminee'
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                echo '================================================'
+                echo 'ETAPE 4 : Verification du Quality Gate'
+                echo '================================================'
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+                echo 'Quality Gate passe avec succes'
+            }
+        }
+
         stage('Archive') {
             steps {
                 echo '================================================'
-                echo 'ETAPE 3 : Archivage des artefacts'
+                echo 'ETAPE 5 : Archivage des artefacts'
                 echo '================================================'
                 archiveArtifacts artifacts: 'target/*.jar',
                         fingerprint: true,
@@ -51,7 +80,7 @@ pipeline {
             echo '================================================'
             echo 'PIPELINE REUSSI !'
             echo "Build #${env.BUILD_NUMBER} termine avec succes"
-            echo "Artefact disponible : ${APP_NAME}-${BUILD_VERSION}.jar"
+            echo "Qualite du code : VALIDE"
             echo '================================================'
         }
 
@@ -59,7 +88,7 @@ pipeline {
             echo '================================================'
             echo 'PIPELINE ECHOUE !'
             echo "Build #${env.BUILD_NUMBER} a echoue"
-            echo 'Consultez les logs pour plus de details'
+            echo 'Cause possible : Quality Gate non respecte'
             echo '================================================'
         }
 
