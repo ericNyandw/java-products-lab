@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional
 @Sql(scripts = "/data.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-public class ProductRepositoryIT  {
+class ProductRepositoryIT  {
 
     @Autowired
     private ProductRepository productRepository;
