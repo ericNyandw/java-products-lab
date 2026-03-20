@@ -29,7 +29,7 @@ pipeline {
                 echo '================================================'
                 echo 'ETAPE 2 : Compilation et Packaging'
                 echo '================================================'
-                bat 'mvn clean package -DskipTests'
+                bat 'mvn clean package'
                 echo 'Build termine avec succes'
             }
         }
