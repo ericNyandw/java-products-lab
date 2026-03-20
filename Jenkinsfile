@@ -8,6 +8,7 @@ pipeline {
 
     environment {
         APP_NAME = 'java-products-lab'
+        JAVA_VERSION = '17'
         BUILD_VERSION = "${env.BUILD_NUMBER}"
         SONAR_PROJECT_KEY = 'java-products-lab'
     }
@@ -43,6 +44,7 @@ pipeline {
                         mvn sonar:sonar ^
                         -Dsonar.projectKey=${SONAR_PROJECT_KEY} ^
                         -Dsonar.projectName="${APP_NAME}" ^
+                         -Dsonar.java.source=${JAVA_VERSION} ^
                         -Dsonar.projectVersion=${BUILD_VERSION}
                     """
                 }
