@@ -1,6 +1,9 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush() // Indique à Jenkins d'écouter le Webhook GitHub
+    }
     tools {
         jdk 'JDK17'
         maven 'MAVEN_3.6.3'
