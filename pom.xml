@@ -160,7 +160,29 @@
 					</excludes>
 				</configuration>
 			</plugin>
-		</plugins>
+					<!-- Plugin JaCoCo pour la couverture de code -->
+					<plugin>
+						<groupId>org.jacoco</groupId>
+						<artifactId>jacoco-maven-plugin</artifactId>
+						<version>0.8.12</version> <!-- Vérifiez la dernière version -->
+						<executions>
+							<!-- Préparation de l'agent JaCoCo avant les tests -->
+							<execution>
+								<goals>
+									<goal>prepare-agent</goal>
+								</goals>
+							</execution>
+							<!-- Génération du rapport après les tests -->
+							<execution>
+								<id>report</id>
+								<phase>test</phase>
+								<goals>
+									<goal>report</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
 	</build>
 
 </project>
