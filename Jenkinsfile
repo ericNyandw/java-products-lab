@@ -88,6 +88,10 @@ pipeline {
             echo "Build #${env.BUILD_NUMBER} termine avec succes"
             echo "Qualite du code : VALIDE"
             echo '================================================'
+            slackSend(
+                    color: 'good',
+                    message: "✅ Build SUCCESS : ${APP_NAME} #${env.BUILD_NUMBER}\n<${env.BUILD_URL}|Voir les détails>"
+            )
         }
 
         failure {
@@ -96,6 +100,10 @@ pipeline {
             echo "Build #${env.BUILD_NUMBER} a echoue"
             echo 'Cause possible : Quality Gate non respecte'
             echo '================================================'
+            slackSend(
+                    color: 'danger',
+                    message: "❌ Build FAILED : ${APP_NAME} #${env.BUILD_NUMBER}\n<${env.BUILD_URL}console|Voir les logs>"
+            )
         }
 
         always {
