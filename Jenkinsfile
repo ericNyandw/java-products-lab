@@ -99,6 +99,7 @@ pipeline {
             echo 'PIPELINE ECHOUE !'
             echo "Build #${env.BUILD_NUMBER} a echoue"
             echo 'Cause possible : Quality Gate non respecte'
+            echo'='
             echo '================================================'
             slackSend(
                     color: 'danger',
