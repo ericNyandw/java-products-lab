@@ -1,9 +1,8 @@
 pipeline {
     agent any
-
+    // 1. Les Triggers (L'allumage)
     triggers {
         githubPush()  // Webhook GitHub
-        // OU
         pollSCM('H/5 * * * *')  // Vérification toutes les 5 min
     }
     tools {

@@ -43,6 +43,7 @@ class ProductServiceTest {
         // Then
         assertThat(result.label()).isEqualTo("Clavier");
         assertThat(result.description()).isEqualTo("Meca");
+        assertThat(result.price()).isGreaterThan(49.0);
         verify(repository, times(1)).save(any());
     }
 }
