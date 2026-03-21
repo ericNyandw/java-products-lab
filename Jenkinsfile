@@ -89,6 +89,8 @@ pipeline {
             echo "Qualite du code : VALIDE"
             echo '================================================'
             slackSend(
+                    tokenCredentialId: 'slack-token', // On appelle l'ID créé dans Jenkins
+                    channel: '#jenkins-builds',        // On précise le bureau
                     color: 'good',
                     message: "✅ Build SUCCESS : ${APP_NAME} #${env.BUILD_NUMBER}\n<${env.BUILD_URL}|Voir les détails>"
             )
@@ -102,6 +104,8 @@ pipeline {
             echo'='
             echo '================================================'
             slackSend(
+                    tokenCredentialId: 'slack-token', // On appelle l'ID créé dans Jenkins
+                    channel: '#jenkins-builds',        // On précise le bureau
                     color: 'danger',
                     message: "❌ Build FAILED : ${APP_NAME} #${env.BUILD_NUMBER}\n<${env.BUILD_URL}console|Voir les logs>"
             )
