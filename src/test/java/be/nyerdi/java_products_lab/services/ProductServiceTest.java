@@ -42,6 +42,7 @@ class ProductServiceTest {
 
         // Then
         assertThat(result.label()).isEqualTo("Clavier");
+        assertThat(result.description()).isEqualTo("Meca");
         verify(repository, times(1)).save(any());
     }
 }

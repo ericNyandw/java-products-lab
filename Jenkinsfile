@@ -2,7 +2,9 @@ pipeline {
     agent any
 
     triggers {
-        githubPush()
+        githubPush()  // Webhook GitHub
+        // OU
+        pollSCM('H/5 * * * *')  // Vérification toutes les 5 min
     }
     tools {
         jdk 'JDK17'
