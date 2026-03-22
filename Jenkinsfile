@@ -88,13 +88,10 @@ pipeline {
             echo "Build #${env.BUILD_NUMBER} termine avec succes"
             echo "Qualite du code : VALIDE"
             echo '================================================'
-            slackSend(
-                    baseUrl: 'https://hooks.slack.com',
-                    token: '3Ya4bo8c24oCAWa1Rn7ZAo7o',
-                    channel: '#jenkins-builds',
-                    color: 'good',
-                    message: "✅ Build SUCCESS : ${APP_NAME} #${env.BUILD_NUMBER}\n<${env.BUILD_URL}|Voir les détails>"
-            )
+            // On remplace slackSend par une commande Windows 'bat' avec curl
+            bat """
+                curl -X POST -H "Content-type: application/json" --data "{\\\"text\\\": \\\"❌ Build FAILED : ${APP_NAME} #${env.BUILD_NUMBER}\\n<${env.BUILD_URL}console|Voir les logs>\\\"}" https://hooks.slack.com
+            """
         }
 
         failure {
@@ -104,13 +101,10 @@ pipeline {
             echo 'Cause possible : Quality Gate non respecte'
             echo'='
             echo '================================================'
-            slackSend(
-                    baseUrl: 'https://hooks.slack.com',
-                    token: '3Ya4bo8c24oCAWa1Rn7ZAo7o',
-                    channel: '#jenkins-builds',
-                    color: 'danger',
-                    message: "❌ Build FAILED : ${APP_NAME} #${env.BUILD_NUMBER}\n<${env.BUILD_URL}console|Voir les logs>"
-            )
+            // On remplace slackSend par une commande Windows 'bat' avec curl
+            bat """
+                curl -X POST -H "Content-type: application/json" --data "{\\\"text\\\": \\\"✅ Build SUCCESS : ${APP_NAME} #${env.BUILD_NUMBER}\\n<${env.BUILD_URL}|Voir les détails>\\\"}" https://hooks.slack.com
+            """
         }
 
         always {
