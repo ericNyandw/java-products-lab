@@ -90,8 +90,6 @@ pipeline {
             echo '================================================'
             // On utilise seulement le tokenCredentialId, le reste est auto
             slackSend(
-                    tokenCredentialId: 'slack-token',
-                    channel: '#jenkins-builds',
                     color: 'good',
                     message: "✅ Build SUCCESS : ${APP_NAME} #${env.BUILD_NUMBER} - <${env.BUILD_URL}|Détails>"
             )
@@ -105,8 +103,6 @@ pipeline {
             echo'='
             echo '================================================'
             slackSend(
-                    tokenCredentialId: 'slack-token',
-                    channel: '#jenkins-builds',
                     color: 'danger',
                     message: "❌ Build FAILED : ${APP_NAME} #${env.BUILD_NUMBER} - <${env.BUILD_URL}console|Logs>"
             )
