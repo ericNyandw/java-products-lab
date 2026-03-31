@@ -17,7 +17,7 @@ services:
 
   # ☕ 2. Le Backend Spring Boot (Java 17)
   backend:
-    build: .  # 👈 On build ici car le Dockerfile est dans ce dossier
+    build: .  # 👈 Build ici, car le Dockerfile est dans ce dossier
     image: java-products-lab:1.0
     container_name: java-products-container
     restart: on-failure  # 👈 s'assure que si Java arrive "trop tôt" et crash, il réessaie quelques secondes plus tard, au moment où la DB est enfin prête.
