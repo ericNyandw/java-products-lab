@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 🐘 1. La Base de données PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_DB: product2_db  # 👈  ici pour correspondre au backend
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ☕ 2. Le Backend Spring Boot (Java 17)
+  backend:
+    build: .  # 👈 On build ici car le Dockerfile est dans ce dossier
+    image: java-products-lab:1.0
+    container_name: java-products-container
+    restart: on-failure  # 👈 s'assure que si Java arrive "trop tôt" et crash, il réessaie quelques secondes plus tard, au moment où la DB est enfin prête.
+    depends_on:
+      - db
+    ports:
+      - "8082:8082"
+    environment:
+      # 1. On utilise 'db' (nom du service) et 5432 (port interne Docker)
+      # 2. On utilise 'product2_db' pour correspondre à code
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/product2_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      # On rajoute ces deux-là pour être sûr que Docker suit mon .properties
+      - SPRING_JMX_ENABLED=false
+      - SPRING_AUTOCONFIGURE_EXCLUDE=org.springframework.boot.actuate.autoconfigure.ssl.SslObservabilityAutoConfiguration,org.springframework.boot.actuate.autoconfigure.endpoint.jmx.JmxEndpointAutoConfiguration
+
+# 💾 3. Définition du volume pour ne pas perdre tes données
+volumes:
+  postgres_data:
