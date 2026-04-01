@@ -3,7 +3,13 @@ version: '3.8' # Version moderne de Compose
 services:
   # 🐘 1. La Base de données PostgreSQL
   db:
-    image: postgres:15-alpine # ✅ Version légère et récente
+    image: postgres:15-alpine # ✅ Version légère et récente…
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d product2_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     container_name: postgres-db # ✅ Nom explicite
     restart: always  # ✅ Redémarre automatiquement
     env_file:
@@ -12,7 +18,11 @@ services:
       - "5433:5432"  # ✅ Évite le conflit si PostgreSQL est installé localement
     volumes:
       - postgres_data:/var/lib/postgresql/data # ✅ Persistance des données
-
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
   # ☕ 2. Le Backend Spring Boot (Java 17)
   backend:
     build: .  # 👈 # ✅ Build l'image depuis le Dockerfile local
@@ -20,11 +30,17 @@ services:
     container_name: java-products-container
     restart: on-failure  # 👈 s'assure que si Java arrive "trop tôt" et crash, il réessaie quelques secondes plus tard, au moment où la DB est enfin prête.
     depends_on:
-      - db
+       db:
+         condition: service_healthy
     ports:
       - "8082:8082"
     env_file:
       - .env  # ✅ Charge les variables depuis .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 # 💾 3. Définition du volume pour ne pas perdre tes données
 volumes:
   postgres_data:
