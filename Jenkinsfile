@@ -89,7 +89,8 @@ pipeline {
                 echo '================================================'
                 script {
                     echo "Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
-                    bat "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} ."
+                    // On désactive BuildKit pour éviter l'erreur de driver
+                    bat "set DOCKER_BUILDKIT=0 && docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} ."
                     bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
                 }
                 echo 'Image Docker construite avec succès'
