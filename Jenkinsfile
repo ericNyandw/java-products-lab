@@ -103,9 +103,18 @@ pipeline {
                 echo 'ETAPE 6 : Publication sur Docker Hub'
                 echo '================================================'
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials') {
+                    // On utilise l'ID que tu as créé dans Jenkins
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USER')]) {
+
+                        // 1. Login
+                        bat "docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}"
+
+                        // 2. Push  .
                         bat "docker push ${DOCKER_IMAGE}:${IMAGE_TAG}"
                         bat "docker push ${DOCKER_IMAGE}:latest"
+
+                        // 3. Logout (Sécurité) - Ferme la porte à clé derrière toi. 🔑
+                        bat "docker logout"
                     }
                 }
                 echo "Image publiee sur Docker Hub: ${DOCKER_IMAGE}:${IMAGE_TAG}"
