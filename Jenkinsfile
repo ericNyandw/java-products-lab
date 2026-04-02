@@ -104,8 +104,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // On utilise l'ID que tu as créé dans Jenkins
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USER')]) {
-
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials') {
                         // 1. Login
                         bat "docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}"
 
