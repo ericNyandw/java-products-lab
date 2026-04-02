@@ -23,11 +23,11 @@ RUN chown appuser:appgroup app.jar
 USER appuser
 
 # ÉTAPE 8 : Port exposé (Spring Boot par défaut = 8080)
-EXPOSE 8082
+EXPOSE 8084
 
 # ÉTAPE 9 : Healthcheck (vérifier que l'app est vivante)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:8082/actuator/health || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:8084/actuator/health || exit 1
 
 # ÉTAPE 10 : Commande de démarrage
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -1,6 +1,15 @@
 pipeline {
     agent any
 
+    // Ajout de paramètres pour choisir le registry
+    parameters {
+        choice(
+                name: 'REGISTRY_TARGET',
+                choices: ['both', 'dockerhub', 'nexus'],
+                description: 'Où publier l\'image Docker ?'
+        )
+    }
+
     triggers {
         githubPush()
         pollSCM('H/5 * * * *')
@@ -28,6 +37,12 @@ pipeline {
         DOCKERHUB_USERNAME = 'nyrdi'
         DOCKER_IMAGE = "${DOCKERHUB_USERNAME}/${APP_NAME}"
         DOCKER_BUILDKIT = '0'
+
+        // Registry Nexus
+        REPOSITORY_DOCKER = 'docker-private'
+        NEXUS_REGISTRY = 'localhost:8082'
+        NEXUS_IMAGE = "${NEXUS_REGISTRY}/${APP_NAME}"
+
     }
 
     stages {
@@ -98,6 +113,9 @@ pipeline {
         }
 
         stage('Push to Docker Hub') {
+            when {
+                expression { params.REGISTRY_TARGET == 'dockerhub' || params.REGISTRY_TARGET == 'both' }
+            }
             steps {
                 echo '================================================'
                 echo 'ETAPE 6 : Publication sur Docker Hub'
@@ -105,14 +123,11 @@ pipeline {
                 script {
                     // On utilise l'ID que tu as créé dans Jenkins
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USER')]) {
-
                         // 1. Login
                         bat "docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}"
-
                         // 2. Push
                         bat "docker push ${DOCKER_IMAGE}:${IMAGE_TAG}"
                         bat "docker push ${DOCKER_IMAGE}:latest"
-
                         // 3. Logout (Sécurité)
                         bat "docker logout"
                     }
@@ -120,12 +135,33 @@ pipeline {
                 echo "Image publiee sur Docker Hub: ${DOCKER_IMAGE}:${IMAGE_TAG}"
             }
         }
+        stage('Push to Nexus Registry') {
+            when {
+                expression { params.REGISTRY_TARGET == 'nexus' || params.REGISTRY_TARGET == 'both' }
+            }
+            steps {
+                echo '================================================'
+                echo 'ETAPE 7 : Publication sur Nexus (Registry Prive)'
+                echo '================================================'
+                script {
+                    // Tag pour Nexus
+                    bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${NEXUS_IMAGE}:${IMAGE_TAG}"
+                    bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${NEXUS_IMAGE}:latest"
 
+                    // Push vers Nexus
+                    docker.withRegistry("http://${NEXUS_REGISTRY}", 'nexus-credentials') {
+                        bat "docker push ${NEXUS_IMAGE}:${IMAGE_TAG}"
+                        bat "docker push ${NEXUS_IMAGE}:latest"
+                    }
+                }
+                echo "✅ Image publiee: ${NEXUS_IMAGE}:${IMAGE_TAG}"
+            }
+        }
 
         stage('Archive') {
             steps {
                 echo '================================================'
-                echo 'ETAPE 7 : Archivage des artefacts'
+                echo 'ETAPE 8 : Archivage des artefacts'
                 echo '================================================'
                 archiveArtifacts artifacts: 'target/*.jar',
                         fingerprint: true,
@@ -142,6 +178,8 @@ pipeline {
             echo "Build #${BUILD_VERSION} termine avec succes"
             echo "Image Docker: ${DOCKER_IMAGE}:${IMAGE_TAG}"
             echo "Qualite du code: VALIDE"
+            echo "Docker Hub: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+            echo "Nexus: ${NEXUS_IMAGE}:${IMAGE_TAG}"
             echo '================================================'
 
             slackSend(
@@ -150,6 +188,7 @@ pipeline {
                         ✅ *Build SUCCESS* : ${APP_NAME} #${BUILD_VERSION}
                         📦 *Image Docker* : \\`${DOCKER_IMAGE}:${IMAGE_TAG}\\`
                         🔗 *Docker Hub* : https://hub.docker.com/r/${DOCKERHUB_USERNAME}/${APP_NAME}
+                        🔒 *Nexus* : http://localhost:8081/#browse/browse:${REPOSITORY_DOCKER}:v2%2F${APP_NAME}
                         📊 *Branche* : ${env.GIT_BRANCH}
                         👤 *Commit* : ${GIT_COMMIT_SHORT}
                         ⏱️ *Durée* : ${currentBuild.durationString}
