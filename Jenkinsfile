@@ -103,7 +103,7 @@ pipeline {
                 echo 'ETAPE 6 : Publication sur Docker Hub'
                 echo '================================================'
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials') {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USER')]) {
                         // Option 1 : Récupérer l'image existante (recommandé)
                         def appImage = docker.image("${DOCKER_IMAGE}:${IMAGE_TAG}")
                         appImage.push()          // Push du tag versionné
