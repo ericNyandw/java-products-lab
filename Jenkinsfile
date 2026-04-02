@@ -144,14 +144,17 @@ pipeline {
                 echo 'ETAPE 7 : Publication sur Nexus (Registry Prive)'
                 echo '================================================'
                 script {
-                    // Tag pour Nexus
-                    bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${NEXUS_IMAGE}:${IMAGE_TAG}"
-                    bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${NEXUS_IMAGE}:latest"
-
-                    // Push vers Nexus
-                    docker.withRegistry("http://${NEXUS_REGISTRY}", 'nexus-credentials') {
+                    withCredentials([usernamePassword(credentialsId: 'nexus-credentials', passwordVariable: 'NEXUS_PWD', usernameVariable: 'NEXUS_USER')]) {
+                        // 1. Tag
+                        bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${NEXUS_IMAGE}:${IMAGE_TAG}"
+                        bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${NEXUS_IMAGE}:latest"
+                        // 2. Login (Préciser le Registry est crucial ici)
+                        bat "docker login ${NEXUS_REGISTRY} -u ${NEXUS_USER} -p ${NEXUS_PWD}"
+                        // 3. Push
                         bat "docker push ${NEXUS_IMAGE}:${IMAGE_TAG}"
                         bat "docker push ${NEXUS_IMAGE}:latest"
+                        // 4. Logout
+                        bat "docker logout ${NEXUS_REGISTRY}"
                     }
                 }
                 echo "✅ Image publiee: ${NEXUS_IMAGE}:${IMAGE_TAG}"
