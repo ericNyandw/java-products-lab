@@ -222,6 +222,13 @@ pipeline {
             echo '================================================'
             echo 'NETTOYAGE DU WORKSPACE'
             echo '================================================'
+            script {
+                echo '--- NETTOYAGE DES IMAGES LOCALES (MODE RADICAL) ---'
+                bat "docker rmi ${DOCKER_IMAGE}:${IMAGE_TAG} || true"
+                bat "docker rmi ${NEXUS_IMAGE}:${IMAGE_TAG} || true"
+                bat "docker rmi ${NEXUS_IMAGE}:latest || true"
+                bat "docker image prune -f"
+            }
             cleanWs()
         }
     }
