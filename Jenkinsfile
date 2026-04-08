@@ -195,7 +195,9 @@ pipeline {
 
                         // 3. On lance le nouveau avec le fichier secret (--env-file)
                         // %SECRET_ENV% est le chemin temporaire du fichier créé par Jenkins
-                        bat "docker run -d -p 8084:8084 --name java-products-container --env-file %SECRET_ENV% ${NEXUS_IMAGE}:latest"
+                        bat "docker run -d -p 8084:8084 --name java-products-container --env-file \"${SECRET_ENV}\" ${NEXUS_IMAGE}:latest"
+
+
                     }
                 }
                 echo '✅ Application déployée sur http://localhost:8084'
