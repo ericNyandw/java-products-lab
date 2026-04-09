@@ -194,8 +194,8 @@ pipeline {
                     withCredentials([file(credentialsId: 'backend-prod-secrets', variable: 'SECRET_ENV'),
                                      usernamePassword(credentialsId: 'nexus-credentials', passwordVariable: 'NEXUS_PWD', usernameVariable: 'NEXUS_USER')]) {
 
-                        // 2. On dégage n'importe quel conteneur qui squatte le port 8084
-                        bat "for /f \"tokens=*\" %%i in ('docker ps -q --filter \"publish=8084\"') do docker rm -f %%i"
+                        // 2. On dégage TOUT ce qui commence par le nom de l'app-container (Up, Created, Exited...)
+                        bat "for /f \"tokens=*\" %%i in ('docker ps -a -q --filter \"name=${APP_NAME}-container\"') do docker rm -f %%i"
 
                         // 3. On stoppe l'ancien conteneur s'il existe
                         bat "docker rm -f java-products-container || true"
