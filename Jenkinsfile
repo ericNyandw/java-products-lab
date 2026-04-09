@@ -49,6 +49,8 @@ pipeline {
         NEXUS_REGISTRY = 'localhost:8082'
         NEXUS_IMAGE = "${NEXUS_REGISTRY}/${APP_NAME}"
 
+        //Name Container
+        CONTAINER_NAME = "${APP_NAME}-container-${GIT_COMMIT_SHORT}"
     }
 
     stages {
@@ -178,6 +180,7 @@ pipeline {
                 echo 'Artefacts archives dans Jenkins'
             }
         }
+
         stage('Deploy to Test') {
             when {
                 expression { params.DEPLOY_APP == true }
@@ -192,12 +195,14 @@ pipeline {
 
                         // 2. On stoppe l'ancien conteneur s'il existe
                         bat "docker rm -f java-products-container || true"
+                        bat "docker rm -f ${CONTAINER_NAME} || true"
 
-                        // 3. On lance le nouveau avec le fichier secret (--env-file)
+                        // 3.  On supprime l'image locale pour obliger le PULL depuis Nexus
+                        bat "docker rmi ${NEXUS_IMAGE}:latest || true"
+
+                        // 4. On lance le nouveau avec le fichier secret (--env-file)
                         // %SECRET_ENV% est le chemin temporaire du fichier créé par Jenkins
-                        bat "docker run -d -p 8084:8084 --name java-products-container --env-file \"${SECRET_ENV}\" ${NEXUS_IMAGE}:latest"
-
-
+                        bat "docker run -d -p 8084:8084 --name ${CONTAINER_NAME} --env-file \"${SECRET_ENV}\" ${NEXUS_IMAGE}:latest"
                     }
                 }
                 echo '✅ Application déployée sur http://localhost:8084'
@@ -252,13 +257,12 @@ pipeline {
 
         always {
             echo '================================================'
-            echo 'ETAPE 9 : Nettoyage Automatique (Housekeeping)'
+            echo 'ETAPE 10 : Nettoyage Automatique (Housekeeping)'
             echo '================================================'
             script {
                 // 1. Supprime les tags spécifiques
                 bat "docker rmi ${DOCKER_IMAGE}:${IMAGE_TAG} || true"
                 bat "docker rmi ${NEXUS_IMAGE}:${IMAGE_TAG} || true"
-
 
                 // 2. Le coup de grâce : supprime tout ce qui n'est pas utilisé
                 bat "docker image prune -f"
