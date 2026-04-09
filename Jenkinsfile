@@ -18,7 +18,6 @@ pipeline {
 
     triggers {
         githubPush()
-        pollSCM('H/5 * * * *')
     }
 
     tools {
