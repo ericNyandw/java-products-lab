@@ -194,18 +194,21 @@ pipeline {
                     withCredentials([file(credentialsId: 'backend-prod-secrets', variable: 'SECRET_ENV'),
                                      usernamePassword(credentialsId: 'nexus-credentials', passwordVariable: 'NEXUS_PWD', usernameVariable: 'NEXUS_USER')]) {
 
-                        // 2. On stoppe l'ancien conteneur s'il existe
+                        // 2. On dégage n'importe quel conteneur qui squatte le port 8084
+                        bat "for /f \"tokens=*\" %%i in ('docker ps -q --filter \"publish=8084\"') do docker rm -f %%i"
+
+                        // 3. On stoppe l'ancien conteneur s'il existe
                         bat "docker rm -f java-products-container || true"
                         bat "docker rm -f ${CONTAINER_NAME} || true"
 
-                        // 3.  On supprime l'image locale pour obliger le PULL depuis Nexus
+                        // 4.  On supprime l'image locale pour obliger le PULL depuis Nexus
                         bat "docker rmi ${NEXUS_IMAGE}:latest || true"
 
-                        // 4. RE-CONNEXION au Nexus pour le Pull
+                        // 5. RE-CONNEXION au Nexus pour le Pull
                         bat "docker login ${NEXUS_REGISTRY} -u ${NEXUS_USER} -p ${NEXUS_PWD}"
 
 
-                        // 5. On lance le nouveau avec le fichier secret (--env-file)
+                        // 6. On lance le nouveau avec le fichier secret (--env-file)
                         // %SECRET_ENV% est le chemin temporaire du fichier créé par Jenkins
                         bat "docker run -d -p 8084:8084 --name ${CONTAINER_NAME} --env-file \"${SECRET_ENV}\" ${NEXUS_IMAGE}:latest"
 
