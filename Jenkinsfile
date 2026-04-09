@@ -190,8 +190,9 @@ pipeline {
                 echo 'ETAPE 9 : Déploiement (Run) avec Secrets'
                 echo '================================================'
                 script {
-                    // 1. On récupère le fichier secret du coffre-fort Jenkins
-                    withCredentials([file(credentialsId: 'backend-prod-secrets', variable: 'SECRET_ENV')]) {
+                    // 1. On récupère le fichier secret du coffre-fort Jenkins et du Nexus(Authentication Barrier)
+                    withCredentials([file(credentialsId: 'backend-prod-secrets', variable: 'SECRET_ENV'),
+                                     usernamePassword(credentialsId: 'nexus-credentials', passwordVariable: 'NEXUS_PWD', usernameVariable: 'NEXUS_USER')]) {
 
                         // 2. On stoppe l'ancien conteneur s'il existe
                         bat "docker rm -f java-products-container || true"
@@ -200,9 +201,16 @@ pipeline {
                         // 3.  On supprime l'image locale pour obliger le PULL depuis Nexus
                         bat "docker rmi ${NEXUS_IMAGE}:latest || true"
 
-                        // 4. On lance le nouveau avec le fichier secret (--env-file)
+                        // 4. RE-CONNEXION au Nexus pour le Pull
+                        bat "docker login ${NEXUS_REGISTRY} -u ${NEXUS_USER} -p ${NEXUS_PWD}"
+
+
+                        // 5. On lance le nouveau avec le fichier secret (--env-file)
                         // %SECRET_ENV% est le chemin temporaire du fichier créé par Jenkins
                         bat "docker run -d -p 8084:8084 --name ${CONTAINER_NAME} --env-file \"${SECRET_ENV}\" ${NEXUS_IMAGE}:latest"
+
+                        // 6. Logout (Optionnel ici car le bloc always le fera, mais plus propre)
+                        bat "docker logout ${NEXUS_REGISTRY}"
                     }
                 }
                 echo '✅ Application déployée sur http://localhost:8084'
