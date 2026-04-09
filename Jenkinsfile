@@ -272,7 +272,12 @@ pipeline {
                 bat "docker rmi ${DOCKER_IMAGE}:${IMAGE_TAG} || true"
                 bat "docker rmi ${NEXUS_IMAGE}:${IMAGE_TAG} || true"
 
-                // 2. Le coup de grâce : supprime tout ce qui n'est pas utilisé
+                // 2. On supprime AUSSI les tags 'latest' qui bloquent le nettoyage
+                bat "docker rmi ${DOCKER_IMAGE}:latest || true"
+                bat "docker rmi ${NEXUS_IMAGE}:latest || true"
+
+
+                // 3. Le coup de grâce : supprime tout ce qui n'est pas utilisé ou les couches devenues orphelines
                 bat "docker image prune -f"
             }
             // Nettoyage de l'espace de travail Jenkins (fichiers sources, jar)
