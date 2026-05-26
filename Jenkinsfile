@@ -294,7 +294,7 @@ pipeline {
 
             script {
                 // 💡 Logique dynamique : On prépare la ligne de statut selon le paramètre de déploiement
-                def deployStatut = "📦 *Statut* : Image publiée (Aucun déploiement demandé)"
+                def deployStatut = "Image publiée (Aucun déploiement demandé)"
 
                 if (params.DEPLOY_APP == true) {
                     // On peut même ré-interroger rapidement Docker pour afficher le conteneur actif dans Slack
@@ -302,7 +302,7 @@ pipeline {
                     def portActif = activeGreen ? GREEN_PORT : BLUE_PORT
                     def envActif = activeGreen ? "GREEN" : "BLUE"
 
-                    deployStatut = "🚀 *Statut* : Déploiement validé sur l'environnement **${envActif}** (Port: ${portActif})"
+                    deployStatut = "Déploiement validé sur l'environnement **${envActif}** (Port: ${portActif})"
                 }
             slackSend(
                     color: 'good',
