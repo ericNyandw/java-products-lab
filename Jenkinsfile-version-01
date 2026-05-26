@@ -50,13 +50,6 @@ pipeline {
 
         //Name Container
         CONTAINER_NAME = "${APP_NAME}-container-${GIT_COMMIT_SHORT}"
-
-        // Configuration Blue/Green
-        BLUE_PORT = '8084'
-        GREEN_PORT = '8085'
-        BLUE_CONTAINER = "${APP_NAME}-blue"
-        GREEN_CONTAINER = "${APP_NAME}-green"
-        HEALTH_ENDPOINT = '/actuator/health'
     }
 
     stages {
@@ -187,95 +180,42 @@ pipeline {
             }
         }
 
-        stage('Deploy with Rollback') {
+        stage('Deploy to Test') {
             when {
                 expression { params.DEPLOY_APP == true }
             }
             steps {
                 echo '================================================'
-                echo 'ETAPE 9 : Déploiement Blue/Green avec Rollback Automatique'
+                echo 'ETAPE 9 : Déploiement (Run) avec Secrets'
                 echo '================================================'
                 script {
-                    // ════════════════════════════════════════════
-                    // PHASE 1 : DÉTECTION ET AIGUILLAGE AUTOMATIQUE
-                    // ════════════════════════════════════════════
-                    // Appel de la méthode locale pour obtenir la configuration cible
-                    def envConfig = detectEnvironment(BLUE_CONTAINER, GREEN_CONTAINER, BLUE_PORT, GREEN_PORT)
-
-                    echo "🎯 Environnement cible détecté : ${envConfig.target.toUpperCase()} (Port externe: ${envConfig.port})"
-
-                    // ════════════════════════════════════════════
-                    // PHASE 2 & 3 : AUTHENTIFICATION, VALIDATION NEXUS ET RUN DYNAMIQUE
-                    // ════════════════════════════════════════════
-
                     // 1. On récupère le fichier secret du coffre-fort Jenkins et du Nexus(Authentication Barrier)
                     withCredentials([file(credentialsId: 'backend-prod-secrets', variable: 'SECRET_ENV'),
                                      usernamePassword(credentialsId: 'nexus-credentials', passwordVariable: 'NEXUS_PWD', usernameVariable: 'NEXUS_USER')]) {
 
-                        // 2. Nettoyage chirurgical : On supprime UNIQUEMENT le conteneur cible pour ne pas couper la prod actuelle
-                        bat "docker rm -f ${envConfig.container} || true"
+                        // 2. On dégage TOUT ce qui commence par le nom de l'app-container (Up, Created, Exited...)
+                        bat "for /f \"tokens=*\" %%i in ('docker ps -a -q --filter \"name=${APP_NAME}-container\"') do docker rm -f %%i"
 
-                        // 3.  On supprime l'image locale pour obliger le PULL depuis Nexus
+                        // 3. On stoppe l'ancien conteneur s'il existe
+                        bat "docker rm -f java-products-container || true"
+                        bat "docker rm -f ${CONTAINER_NAME} || true"
+
+                        // 4.  On supprime l'image locale pour obliger le PULL depuis Nexus
                         bat "docker rmi ${NEXUS_IMAGE}:latest || true"
 
-                        // 4. RE-CONNEXION au Nexus pour le Pull
+                        // 5. RE-CONNEXION au Nexus pour le Pull
                         bat "docker login ${NEXUS_REGISTRY} -u ${NEXUS_USER} -p ${NEXUS_PWD}"
 
 
-                        // 5. On lance le nouveau avec le fichier secret (--env-file)
+                        // 6. On lance le nouveau avec le fichier secret (--env-file)
                         // %SECRET_ENV% est le chemin temporaire du fichier créé par Jenkins
-                        // Lancement dynamique : On injecte le port et le nom calculés en Phase 1
-                        echo "🚀 Lancement de l'instance sur la zone ${envConfig.target.toUpperCase()}..."
-                        bat "docker run -d -p ${envConfig.port}:8084 --name ${envConfig.container} --env-file \"${SECRET_ENV}\" ${NEXUS_IMAGE}:latest"
+                        bat "docker run -d -p 8084:8084 --name ${CONTAINER_NAME} --env-file \"${SECRET_ENV}\" ${NEXUS_IMAGE}:latest"
 
                         // 6. Logout (Optionnel ici car le bloc always le fera, mais plus propre)
                         bat "docker logout ${NEXUS_REGISTRY}"
                     }
-
-                    // ════════════════════════════════════════════
-                    // PHASE 4 : HEALTHCHECK AUTOMATISÉ (SMOKE TEST)
-                    // ════════════════════════════════════════════
-                    // On appelle notre méthode locale sur le port temporaire de test (max 12 tentatives de 5s)
-                    def isHealthy = runHealthcheck(envConfig.port, HEALTH_ENDPOINT, 12, 5)
-
-                    // ════════════════════════════════════════════
-                    // PHASE 5 : DÉCISION FINALE (CLEANUP OU ROLLBACK)
-                    // ════════════════════════════════════════════
-                    if (isHealthy) {
-                        echo "════════════════════════════════════════════"
-                        echo "✅ DÉPLOIEMENT RÉUSSI SUR L'ENVIRONNEMENT ${envConfig.target.toUpperCase()} !"
-                        echo "════════════════════════════════════════════"
-
-                        // Si une ancienne version tournait, on l'éteint proprement car la relève est assurée
-                        if (envConfig.current != 'none') {
-                            def oldContainer = (envConfig.current == 'blue') ? BLUE_CONTAINER : GREEN_CONTAINER
-                            echo "🗑️ Suppression de l'ancienne instance de production devenue inutile : ${oldContainer}"
-                            bat "docker rm -f ${oldContainer} || true"
-                        }
-                    } else {
-                        echo "════════════════════════════════════════════"
-                        echo "❌ ÉCHEC DU HEALTHCHECK - DÉCLENCHEMENT DU ROLLBACK AUTOMATIQUE"
-                        echo "════════════════════════════════════════════"
-
-                        // Extraction des 50 dernières lignes de logs pour comprendre pourquoi Spring Boot n'a pas démarré
-                        def failedLogs = bat(returnStdout: true, script: "docker logs --tail 50 ${envConfig.container}").trim()
-                        echo "📋 Extraits des logs d'erreur (Runtime Error) :\n${failedLogs}"
-
-                        // Destruction immédiate de l'instance défaillante pour libérer les ressources
-                        echo "🗑️ Nettoyage du conteneur cible en échec..."
-                        bat "docker rm -f ${envConfig.container}"
-
-                        // Transmission d'état intelligente vers le bloc 'post'
-                        env.ROLLBACK_EXECUTED = 'true'
-                        env.OLD_ENV_PRESERVED = envConfig.current.toUpperCase()
-                        env.OLD_PORT_PRESERVED = (envConfig.current == 'blue') ? BLUE_PORT : GREEN_PORT
-
-                        // On force la coupure du pipeline en erreur pour alerter l'équipe
-                        error("Le déploiement a échoué. L'environnement stable d'origine (${envConfig.current}) a été maintenu.")
-                    }
-
                 }
-                echo "✅ Processus de déploiement et de vérification terminé."
+                echo '✅ Application déployée sur http://localhost:8084'
             }
         }
 
@@ -314,36 +254,15 @@ pipeline {
             echo 'Consultez les logs pour plus de details'
             echo '================================================'
 
-            script {
-                // 💡 On intercepte si l'échec vient d'un Rollback Automatique
-                if (env.ROLLBACK_EXECUTED == 'true') {
-                    echo "🔄 Notification : Alerte Déploiement Échoué avec Rollback Automatique envoyé à Slack."
-                    slackSend(
-                            color: 'warning', // Couleur Orange/Jaune pour signaler une sécurité activée
-                            message: """
-                                ⚠️ *DÉPLOIEMENT ÉCHOUÉ - ROLLBACK EFFECTUÉ*
-                                📦 *Projet* : ${APP_NAME} #${BUILD_VERSION}
-                                ❌ *Nouvelle Version* : Rejetée (Healthcheck KO)
-                                ✅ *Production Préservée* : L'instance stable *${env.OLD_ENV_PRESERVED}* reste active sur le port *${env.OLD_PORT_PRESERVED}*
-                                📊 *Branche* : ${env.GIT_BRANCH}
-                                👤 *Commit incriminé* : ${GIT_COMMIT_SHORT}
-                                🔗 <${env.BUILD_URL}console|Analyser les logs d'erreur sur Jenkins>
-                            """.stripIndent()
-                    )
-                } else {
-                    // Si l'échec arrive AVANT le déploiement (ex: Compilation Maven, SonarQube ou Push KO)
-                    // On conserve l'erreur d'origine (Rouge)
-                    slackSend(
-                            color: 'danger',
-                            message: """
-                                ❌ *Build FAILED* : ${APP_NAME} #${BUILD_VERSION}
-                                📦 *Branche* : ${env.GIT_BRANCH}
-                                ⚠️ *Stage echoue* : ${env.STAGE_NAME}
-                                🔗 <${env.BUILD_URL}console|Voir les logs>
-                            """.stripIndent()
-                    )
-                }
-            }
+            slackSend(
+                    color: 'danger',
+                    message: """
+                        ❌ *Build FAILED* : ${APP_NAME} #${BUILD_VERSION}
+                        📦 *Branche* : ${env.GIT_BRANCH}
+                        ⚠️ *Stage echoue* : ${env.STAGE_NAME}
+                        🔗 <${env.BUILD_URL}console|Voir les logs>
+                    """.stripIndent()
+            )
         }
 
         always {
@@ -369,66 +288,3 @@ pipeline {
         }
     }
 }
-
-/**
- * PHASE 1 : DÉTECTION DE L'ENVIRONNEMENT ACTUEL
- * Analyse les conteneurs Docker présents pour déterminer la cible du déploiement.
- *
- * @param blueName       Nom du conteneur pour l'environnement BLUE
- * @param greenName      Nom du conteneur pour l'environnement GREEN
- * @param bluePort       Port d'écoute externe pour l'environnement BLUE
- * @param greenPort      Port d'écoute externe pour l'environnement GREEN
- * @return Map           Configuration dynamique [current, target, port, container]
- */
-def detectEnvironment(blueName, greenName, bluePort, greenPort) {
-    def blueExists = bat(returnStatus: true, script: "docker ps -q --filter name=${blueName}") == 0
-    def greenExists = bat(returnStatus: true, script: "docker ps -q --filter name=${greenName}") == 0
-
-    if (blueExists) {
-        return [current: 'blue', target: 'green', port: greenPort, container: greenName]
-    } else if (greenExists) {
-        return [current: 'green', target: 'blue', port: bluePort, container: blueName]
-    } else {
-        return [current: 'none', target: 'blue', port: bluePort, container: blueName]
-    }
-}
-
-/**
- * PHASE 4 : Healthcheck automatisé (Smoke Test) avec gestion des retries.
- * Interroge l'endpoint de l'application sur son port temporaire de test.
- *
- * @param port           Port temporaire à interroger (targetPort)
- * @param endpoint       Chemin de l'Actuator Health (/actuator/health)
- * @param maxRetries     Nombre maximal de tentatives de vérification
- * @param delaySeconds   Temps d'attente en secondes entre chaque tentative
- * @return Boolean       True si l'application répond avec un statut "UP", False sinon
- */
-def runHealthcheck(port, endpoint, maxRetries, delaySeconds) {
-    def healthy = false
-    def count = 0
-
-    echo "⏳ Attente du démarrage de l'application..."
-    sleep(time: 10, unit: 'SECONDS') // Temps de chauffe initial requis par Spring Boot
-
-    while (count < maxRetries && !healthy) {
-        count++
-        echo "🏥 Vérification de santé sur le port de test ${port} : tentative ${count}/${maxRetries}..."
-
-        // Utilisation explicite de curl.exe pour l'environnement Windows 11
-        def status = bat(returnStatus: true, script: "curl.exe -f -s http://localhost:${port}${endpoint}")
-
-        if (status == 0) {
-            def response = bat(returnStdout: true, script: "curl.exe -s http://localhost:${port}${endpoint}").trim()
-            if (response.contains('"status":"UP"')) {
-                healthy = true
-                echo "✅ Healthcheck réussi !"
-            }
-        }
-        if (!healthy && count < maxRetries) {
-            sleep(time: delaySeconds, unit: 'SECONDS')
-        }
-    }
-    return healthy
-}
-
-
