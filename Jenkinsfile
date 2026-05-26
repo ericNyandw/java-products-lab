@@ -292,10 +292,23 @@ pipeline {
             echo "Nexus: ${NEXUS_IMAGE}:${IMAGE_TAG}"
             echo '================================================'
 
+            script {
+                // 💡 Logique dynamique : On prépare la ligne de statut selon le paramètre de déploiement
+                def deployStatut = "📦 *Statut* : Image publiée (Aucun déploiement demandé)"
+
+                if (params.DEPLOY_APP == true) {
+                    // On peut même ré-interroger rapidement Docker pour afficher le conteneur actif dans Slack
+                    def activeGreen = bat(returnStatus: true, script: "docker ps -q --filter name=${GREEN_CONTAINER}") == 0
+                    def portActif = activeGreen ? GREEN_PORT : BLUE_PORT
+                    def envActif = activeGreen ? "GREEN" : "BLUE"
+
+                    deployStatut = "🚀 *Statut* : Déploiement validé sur l'environnement **${envActif}** (Port: ${portActif})"
+                }
             slackSend(
                     color: 'good',
                     message: """
                         ✅ *Build SUCCESS* : ${APP_NAME} #${BUILD_VERSION}
+                        🚀 *deploy Statut* : ${deployStatut}
                         📦 *Image Docker* : \\`${DOCKER_IMAGE}:${IMAGE_TAG}\\`
                         🔗 *Docker Hub* : https://hub.docker.com/r/${DOCKERHUB_USERNAME}/${APP_NAME}
                         🔒 *Nexus* : http://localhost:8081/#browse/browse:${REPOSITORY_DOCKER}:v2%2F${APP_NAME}
@@ -305,6 +318,7 @@ pipeline {
                         🔗 <${env.BUILD_URL}|Voir les détails>
                     """.stripIndent()
             )
+            }
         }
 
         failure {
