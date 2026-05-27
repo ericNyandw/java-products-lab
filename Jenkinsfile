@@ -585,22 +585,22 @@ def runHealthcheck(port, endpoint, maxRetries, delaySeconds) {
 
 /**
  * PHASE 8 : Calcule la durée exacte entre deux repères temporels.
- * Sécurisé pour la Sandbox Jenkins en utilisant un calcul sur des entiers longs primitifs.
+ * Sécurisé pour la Sandbox en utilisant un transtypage primitif (long) direct.
  *
  * @param startTime  Timestamp de début en millisecondes
  * @param endTime    Timestamp de fin en millisecondes
  * @return String    Durée calculée en secondes sous forme de texte
  */
 def calculateStageDuration(startTime, endTime) {
-    long diffMillis = endTime - startTime
-    long durationSeconds = diffMillis / 1000
-    return durationSeconds.toString()
+    double diff = endTime - startTime
+    // (long) est un opérateur natif Java, la Sandbox ne peut pas le bloquer
+    long seconds = (long) (diff / 1000.0)
+    return seconds.toString()
 }
 
 
 /**
- * PHASE 8 : Extrait la taille du fichier JAR généré par Maven.
- * Compatible avec l'environnement Windows 11.
+ * PHASE 8 : Extrait la taille du fichier JAR via PowerShell(Évite les pièges des chemins Windows et sécurise la conversion.).
  *
  * @return Double Taille en MB
  */
@@ -608,12 +608,13 @@ def getJarSizeMB() {
     def jarFile = bat(returnStdout: true, script: "dir /b target\\*.jar").trim()
     if (!jarFile || jarFile.contains("File Not Found")) return 0.0
 
-    def jarSizeStr = bat(returnStdout: true, script: "for %I in (target\\${jarFile}) do @echo %~zI").trim()
-    // Initialisation native sans passer par .toLong()
-    long jarSizeOctets = Long.parseLong(jarSizeStr)
+    def sizeStr = bat(returnStdout: true, script: "powershell -Command \"(Get-Item target\\${jarFile}).Length\"").trim()
+    // Utilisation du parseur officiel pré-approuvé par Jenkins
+    long jarSizeOctets = Long.parseLong(sizeStr)
     long jarSizeMB = jarSizeOctets / 1024 / 1024
     return jarSizeMB
 }
+
 
 
 /**
