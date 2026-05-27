@@ -67,6 +67,7 @@ pipeline {
         TIME_MAVEN = '0'
         TIME_SONAR = '0'
         TIME_DOCKER = '0'
+        TIME_DOCKER_HUB = '0'
         TIME_DEPLOY = '0'
 
     }
@@ -78,7 +79,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. On capture l'heure de départ (en millisecondes)
-                    def startTime = System.currentTimeMillis()
+                    def startTime = new Date().time
 
                     // 2. Recuperation du code source (sur GitHub)
                     checkout scm
@@ -87,9 +88,8 @@ pipeline {
                     echo 'Code récupère avec succès depuis GitHub'
 
                     // 3. On capture l'heure de fin
-                    def endTime = System.currentTimeMillis()
+                    def endTime = new Date().time
 
-                    // 4. On calcule et on écrase le '0' de la variable globale
                     env.TIME_CHECKOUT = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'exécution du Checkout : ${env.TIME_CHECKOUT}s"
                 }
@@ -104,14 +104,14 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. Départ du chronomètre Maven
-                    def startTime = System.currentTimeMillis()
+                    def startTime = new Date().time
 
                     // 2. Compilation et Packaging Maven
                     bat 'mvn clean package '
                     echo 'Build Maven termine avec succès'
 
                     // 3. Fin du chronomètre
-                    def endTime = System.currentTimeMillis()
+                    def endTime = Snew Date().time
 
                     // 4. On écrase le '0' de TIME_MAVEN par la durée réelle
                     env.TIME_MAVEN = calculateStageDuration(startTime, endTime)
@@ -591,38 +591,36 @@ def runHealthcheck(port, endpoint, maxRetries, delaySeconds) {
 
 /**
  * PHASE 8 : Calcule la durée exacte entre deux repères temporels.
- * Sécurisé pour la Sandbox en utilisant un transtypage primitif (long) direct.
  *
- * @param startTime  Timestamp de début en millisecondes
- * @param endTime    Timestamp de fin en millisecondes
- * @return String    Durée calculée en secondes sous forme de texte
+ * @param startTime  Nombre entier long (new Date().time)
+ * @param endTime    Nombre entier long (new Date().time)
+ * @return String    Durée en secondes
  */
 def calculateStageDuration(startTime, endTime) {
-    long start = Long.parseLong(startTime.toString())
-    long end = Long.parseLong(endTime.toString())
-    long diffSeconds = (end - start) / 1000
+    long diffSeconds = (endTime - startTime) / 1000
     return diffSeconds.toString()
 }
 
 
 /**
- * PHASE 8 : Extrait la taille du fichier JAR via PowerShell(Évite les pièges des chemins Windows et sécurise la conversion.).
+ * PHASE 8 : Extrait la taille du fichier JAR via PowerShell et corrige la régionalisation.
+ * Évite le piège de la virgule française (ex: 1,23 -> 1.23) pour sécuriser .toDouble().
  *
  * @return Double Taille en MB
  */
 def getJarSizeMB() {
-    // Cette commande cherche elle-même le fichier *.jar sans utiliser dir /b
-    def sizeStr = bat(returnStdout: true, script: "powershell -Command \"(Get-ChildItem target\\*.jar | Select-Object -First 1).Length\"").trim()
+    // Étape native Jenkins pour trouver le fichier sur l'Agent
+    def jarFile = powershell(returnStdout: true, script: "(Get-ChildItem target/*.jar | Select-Object -First 1).Name").trim()
+    if (!jarFile) return 0.0
 
-    if (!sizeStr || sizeStr.contains("target")) return 0.0
+    // Récupération des octets bruts sur l'Agent
+    def sizeStr = powershell(returnStdout: true, script: "(Get-Item target/${jarFile}).Length").trim()
+    if (!sizeStr || !sizeStr.isNumber()) return 0.0
 
-    // On nettoie les résidus de lignes Windows
-    def cleanLines = sizeStr.readLines()
-    def cleanSize = cleanLines ? cleanLines.last().trim() : "0"
+    double octets = sizeStr.toDouble()
+    double megaBytes = octets / (1024.0 * 1024.0)
 
-    long jarSizeOctets = Long.parseLong(cleanSize)
-    long jarSizeMB = jarSizeOctets / 1024 / 1024
-    return jarSizeMB
+    return Math.round(megaBytes * 100.0) / 100.0
 }
 
 
