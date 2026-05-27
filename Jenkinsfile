@@ -67,6 +67,8 @@ pipeline {
         TIME_MAVEN = '0'
         TIME_SONAR = '0'
         TIME_DOCKER = '0'
+        TIME_DOCKER_HUB = '0'
+        TIME_PUSH_ON_NEXUS = '0'
         TIME_DEPLOY = '0'
 
     }
@@ -79,7 +81,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. On capture l'heure de départ (en millisecondes)
-                    def startTime = System.currentTimeMillis()
+                    def startTime = new Date().time
 
                     // 2. Recuperation du code source (sur GitHub)
                     checkout scm
@@ -88,7 +90,7 @@ pipeline {
                     echo 'Code récupère avec succès depuis GitHub'
 
                     // 3. On capture l'heure de fin
-                    def endTime = System.currentTimeMillis()
+                    def endTime = new Date().time
 
                     // 4. On calcule et on écrase le '0' de la variable globale
                     env.TIME_CHECKOUT = calculateStageDuration(startTime, endTime)
@@ -105,14 +107,14 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. Départ du chronomètre Maven
-                    def startTime = System.currentTimeMillis()
+                    def startTime = new Date().time
 
                     // 2. Compilation et Packaging Maven
                     bat 'mvn clean package '
                     echo 'Build Maven termine avec succès'
 
                     // 3. Fin du chronomètre
-                    def endTime = System.currentTimeMillis()
+                    def endTime = new Date().time
 
                     // 4. On écrase le '0' de TIME_MAVEN par la durée réelle
                     env.TIME_MAVEN = calculateStageDuration(startTime, endTime)
@@ -129,22 +131,20 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. Départ du chronomètre SonarQube
-                    def startTime = System.currentTimeMillis()
+                    def startTime = new Date().time
                     //Analyse de la qualité du code
-                withSonarQubeEnv('SonarQube-Local') {
-                    bat """
-                        mvn sonar:sonar ^
-                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} ^
-                        -Dsonar.projectName="${APP_NAME}" ^
-                        -Dsonar.java.source=${JAVA_VERSION} ^
-                        -Dsonar.projectVersion=${BUILD_VERSION}
-                    """
-                }
-                echo 'Analyse SonarQube terminée'
-                    // 3. Fin du chronomètre
-                    def endTime = System.currentTimeMillis()
-
-                    // 4. On écrase le '0' de TIME_SONAR par la durée réelle
+                    withSonarQubeEnv('SonarQube-Local') {
+                        bat """
+                            mvn sonar:sonar ^
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} ^
+                            -Dsonar.projectName="${APP_NAME}" ^
+                            -Dsonar.java.source=${JAVA_VERSION} ^
+                            -Dsonar.projectVersion=${BUILD_VERSION}
+                        """
+                    }
+                    echo 'Analyse SonarQube terminée'
+                        // 3. Fin du chronomètre
+                        def endTime = new Date().time
                     env.TIME_SONAR = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'exécution de SonarQube : ${env.TIME_SONAR}s"
                 }
@@ -157,13 +157,13 @@ pipeline {
                 echo 'ETAPE 4 : Verification du Quality Gate'
                 echo '================================================'
                 script {
-                    def startTime = System.currentTimeMillis()
+                    def startTime = new Date().time
                     timeout(time: 5, unit: 'MINUTES') {
                         waitForQualityGate abortPipeline: true
                     }
                     echo 'Quality Gate passe avec succès'
 
-                    def endTime = System.currentTimeMillis()
+                    def endTime = new Date().time
                     // On écrase le '0' de TIME_QUALITY_GATE par la durée réelle d'attente
                     env.TIME_QUALITY_GATE = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'attente du Quality Gate : ${env.TIME_QUALITY_GATE}s"
@@ -177,13 +177,13 @@ pipeline {
                 echo 'ETAPE 5 : Construction de l image Docker'
                 echo '================================================'
                 script {
-                    def startTime = System.currentTimeMillis()
+                    def startTime = new Date().time
 
                     echo "Image: ${DOCKER_IMAGE}:${env.IMAGE_TAG}"
                     bat "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} ."
                     bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
 
-                    def endTime = System.currentTimeMillis()
+                    def endTime = new Date().time
                     env.TIME_DOCKER = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'exécution du Build Docker : ${env.TIME_DOCKER}s"
                 }
@@ -200,6 +200,7 @@ pipeline {
                 echo 'ETAPE 6 : Publication sur Docker Hub'
                 echo '================================================'
                 script {
+                    def startTime = new Date().time
                     // On utilise l'ID que tu as créé dans Jenkins
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USER')]) {
                         // 1. Login
@@ -210,6 +211,9 @@ pipeline {
                         // 3. Logout (Sécurité)
                         bat "docker logout"
                     }
+                    def endTime = new Date().time
+                    env.TIME_DOCKER_HUB = calculateStageDuration(startTime, endTime)
+                    echo "⏱️ Temps d'exécution du Build Docker  Hub : ${env.TIME_DOCKER_HUB}s"
                 }
                 echo "Image publiee sur Docker Hub: ${DOCKER_IMAGE}:${IMAGE_TAG}"
             }
@@ -223,6 +227,7 @@ pipeline {
                 echo 'ETAPE 7 : Publication sur Nexus (Registry Prive)'
                 echo '================================================'
                 script {
+                    def startTime = new Date().time
                     withCredentials([usernamePassword(credentialsId: 'nexus-credentials', passwordVariable: 'NEXUS_PWD', usernameVariable: 'NEXUS_USER')]) {
                         // 1. Tag
                         bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${NEXUS_IMAGE}:${IMAGE_TAG}"
@@ -235,6 +240,10 @@ pipeline {
                         // 4. Logout
                         bat "docker logout ${NEXUS_REGISTRY}"
                     }
+
+                    def endTime = new Date().time
+                    env.TIME_PUSH_ON_NEXUS = calculateStageDuration(startTime, endTime)
+                    echo "⏱️ Temps d'exécution du publication sur Nexus : ${env.TIME_PUSH_ON_NEXUS}s"
                 }
                 echo "✅ Image publiee: ${NEXUS_IMAGE}:${IMAGE_TAG}"
             }
@@ -262,7 +271,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // 💡 1. DÉPART DU CHRONOMÈTRE DE DÉPLOIEMENT
-                    def startTime = System.currentTimeMillis()
+                    def startTime = new Date().time
 
                     // ════════════════════════════════════════════
                     // PHASE 1 : DÉTECTION ET AIGUILLAGE AUTOMATIQUE
@@ -342,7 +351,7 @@ pipeline {
                         error("Le déploiement a échoué. L'environnement stable d'origine (${envConfig.current}) a été maintenu.")
                     }
                     // 💡 2. FIN DU CHRONOMÈTRE DE DÉPLOIEMENT
-                    def endTime = System.currentTimeMillis()
+                    def endTime = new Date().time
                     // 💡 3. ON ÉCRASE LE '0' DE TIME_DEPLOY PAR LA DURÉE RÉELLE
                     env.TIME_DEPLOY = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps total d'exécution du Déploiement/Rollback : ${env.TIME_DEPLOY}s"
@@ -592,10 +601,10 @@ def runHealthcheck(port, endpoint, maxRetries, delaySeconds) {
  * @return String    Durée calculée en secondes sous forme de texte
  */
 def calculateStageDuration(startTime, endTime) {
-    double diff = endTime - startTime
-    // (long) est un opérateur natif Java, la Sandbox ne peut pas le bloquer
-    long seconds = (long) (diff / 1000.0)
-    return seconds.toString()
+    long start = Long.parseLong(startTime.toString())
+    long end = Long.parseLong(endTime.toString())
+    long diffSeconds = (end - start) / 1000
+    return diffSeconds.toString()
 }
 
 
@@ -605,12 +614,16 @@ def calculateStageDuration(startTime, endTime) {
  * @return Double Taille en MB
  */
 def getJarSizeMB() {
-    def jarFile = bat(returnStdout: true, script: "dir /b target\\*.jar").trim()
-    if (!jarFile || jarFile.contains("File Not Found")) return 0.0
+    // Cette commande cherche elle-même le fichier *.jar sans utiliser dir /b
+    def sizeStr = bat(returnStdout: true, script: "powershell -Command \"(Get-ChildItem target\\*.jar | Select-Object -First 1).Length\"").trim()
 
-    def sizeStr = bat(returnStdout: true, script: "powershell -Command \"(Get-Item target\\${jarFile}).Length\"").trim()
-    // Utilisation du parseur officiel pré-approuvé par Jenkins
-    long jarSizeOctets = Long.parseLong(sizeStr)
+    if (!sizeStr || sizeStr.contains("target")) return 0.0
+
+    // On nettoie les résidus de lignes Windows
+    def cleanLines = sizeStr.readLines()
+    def cleanSize = cleanLines ? cleanLines.last().trim() : "0"
+
+    long jarSizeOctets = Long.parseLong(cleanSize)
     long jarSizeMB = jarSizeOctets / 1024 / 1024
     return jarSizeMB
 }
