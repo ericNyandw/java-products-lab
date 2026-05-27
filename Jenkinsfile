@@ -91,7 +91,7 @@ pipeline {
 
                     // 3. On capture l'heure de fin
                     double endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime) / 1000
+                    long duration = (endTime - startTime)
                     env.TIME_CHECKOUT =  String.valueOf(duration)
                     echo "⏱️ Temps d'exécution du Checkout : ${env.TIME_CHECKOUT}s"
                 }
@@ -114,7 +114,7 @@ pipeline {
 
                     // 3. Fin du chronomètre
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime) / 1000
+                    long duration = (endTime - startTime)
                     // 4. On écrase le '0' de TIME_MAVEN par la durée réelle
                     env.TIME_MAVEN = String.valueOf(duration)
                     echo "⏱️ Temps d'exécution du Build Maven : ${env.TIME_MAVEN}s"
@@ -144,7 +144,7 @@ pipeline {
                     echo 'Analyse SonarQube terminée'
                         // 3. Fin du chronomètre
                         long endTime = System.currentTimeMillis()
-                        long duration = (endTime - startTime) / 1000
+                        long duration = (endTime - startTime)
                     env.TIME_SONAR = String.valueOf(duration)
                     echo "⏱️ Temps d'exécution de SonarQube : ${env.TIME_SONAR}s"
                 }
@@ -164,7 +164,7 @@ pipeline {
                     echo 'Quality Gate passe avec succès'
 
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime) / 1000
+                    long duration = (endTime - startTime)
                     // On écrase le '0' de TIME_QUALITY_GATE par la durée réelle d'attente
                     env.TIME_QUALITY_GATE = String.valueOf(duration)
                     echo "⏱️ Temps d'attente du Quality Gate : ${env.TIME_QUALITY_GATE}s"
@@ -185,7 +185,7 @@ pipeline {
                     bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
 
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime) / 1000
+                    long duration = (endTime - startTime)
                     env.TIME_DOCKER = String.valueOf(duration)
                     echo "⏱️ Temps d'exécution du Build Docker : ${env.TIME_DOCKER}s"
                 }
@@ -214,7 +214,7 @@ pipeline {
                         bat "docker logout"
                     }
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime) / 1000
+                    long duration = (endTime - startTime)
                     env.TIME_DOCKER_HUB = String.valueOf(duration)
                             echo "⏱️ Temps d'exécution du Build Docker  Hub : ${env.TIME_DOCKER_HUB}s"
                 }
@@ -245,7 +245,7 @@ pipeline {
                     }
 
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime) / 1000
+                    long duration = (endTime - startTime)
                     env.TIME_PUSH_ON_NEXUS = String.valueOf(duration)
                     echo "⏱️ Temps d'exécution du publication sur Nexus : ${env.TIME_PUSH_ON_NEXUS}s"
                 }
