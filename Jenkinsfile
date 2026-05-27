@@ -359,7 +359,8 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. Calcul des métriques temporelles globales de Jenkins
-                    def buildDuration = currentBuild.durationString.contains('s') ? (currentBuild.duration / 1000).toLong() : 0
+                    long totalMillis = currentBuild.duration
+                    long buildDuration = totalMillis / 1000
                     def buildStartTime = new Date(currentBuild.startTimeInMillis).format('yyyy-MM-dd HH:mm:ss')
 
                     // 2. Appel de nos fonctions d'infrastructure locales (Windows 11)
@@ -607,9 +608,13 @@ def getJarSizeMB() {
     def jarFile = bat(returnStdout: true, script: "dir /b target\\*.jar").trim()
     if (!jarFile || jarFile.contains("File Not Found")) return 0.0
 
-    def jarSizeOctets = bat(returnStdout: true, script: "for %I in (target\\${jarFile}) do @echo %~zI").trim()
-    return (jarSizeOctets.toLong() / 1024 / 1024).round(2)
+    def jarSizeStr = bat(returnStdout: true, script: "for %I in (target\\${jarFile}) do @echo %~zI").trim()
+    // Initialisation native sans passer par .toLong()
+    long jarSizeOctets = Long.parseLong(jarSizeStr)
+    long jarSizeMB = jarSizeOctets / 1024 / 1024
+    return jarSizeMB
 }
+
 
 /**
  * PHASE 8 : Récupère le poids de l'image Docker construite.
