@@ -350,7 +350,7 @@ pipeline {
                     // 💡 2. FIN DU CHRONOMÈTRE DE DÉPLOIEMENT
                     long endTime = System.currentTimeMillis()
                     // 💡 3. ON ÉCRASE LE '0' DE TIME_DEPLOY PAR LA DURÉE RÉELLE
-                    env.TIME_DEPLOY = calculateStageDuration(startTime, endTime)
+                    env.TIME_DEPLOY = String.valueOf((long)(endTime - startTime))
                     echo "⏱️ Temps total d'exécution du Déploiement/Rollback : ${env.TIME_DEPLOY}s"
 
                 }
@@ -391,14 +391,14 @@ pipeline {
   "duration_seconds": ${buildDuration},
   "start_time": "${buildStartTime}",
   "stage_durations": {
-    "checkout_seconds": ${env.TIME_CHECKOUT},
-    "maven_build_seconds": ${env.TIME_MAVEN},
-    "sonarqube_seconds": ${env.TIME_SONAR},
-    "quality_gate_seconds": ${env.TIME_QUALITY_GATE},
-    "docker_build_seconds": ${env.TIME_DOCKER},
-    "docker_build_Hub_seconds": ${env.TIME_DOCKER_HUB},
-    "Push_on_NEXUS_seconds": ${env.TIME_PUSH_ON_NEXUS},
-    "deployment_seconds": ${env.TIME_DEPLOY}
+    "checkout_ms": ${env.TIME_CHECKOUT},
+    "maven_build_ms": ${env.TIME_MAVEN},
+    "sonarqube_ms": ${env.TIME_SONAR},
+    "quality_gate_ms": ${env.TIME_QUALITY_GATE},
+    "docker_build_ms": ${env.TIME_DOCKER},
+    "docker_build_Hub_ms": ${env.TIME_DOCKER_HUB},
+    "Push_on_NEXUS_ms": ${env.TIME_PUSH_ON_NEXUS},
+    "deployment_ms": ${env.TIME_DEPLOY}
   },
   "artifacts": {
     "jar_size_mb": ${jarSizeMB},
@@ -597,13 +597,14 @@ def runHealthcheck(port, endpoint, maxRetries, delaySeconds) {
  * @param startTime  Nombre entier long (System.currentTimeMillis())
  * @param endTime    Nombre entier long (System.currentTimeMillis())
  * @return String    Durée en secondes
- */
+
 def calculateStageDuration(startTime, endTime) {
     long start = (long) startTime
     long end = (long) endTime
     long diffSeconds = (end - start) / 1000
     return diffSeconds.toString()
 }
+ */
 
 
 /**
