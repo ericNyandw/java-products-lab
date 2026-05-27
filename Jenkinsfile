@@ -91,8 +91,8 @@ pipeline {
 
                     // 3. On capture l'heure de fin
                     double endTime = System.currentTimeMillis()
-
-                    env.TIME_CHECKOUT =  String.valueOf((long)(endTime - startTime) / 1000f)
+                    long duration = (endTime - startTime) / 1000
+                    env.TIME_CHECKOUT =  String.valueOf(duration)
                     echo "⏱️ Temps d'exécution du Checkout : ${env.TIME_CHECKOUT}s"
                 }
             }
@@ -114,9 +114,9 @@ pipeline {
 
                     // 3. Fin du chronomètre
                     long endTime = System.currentTimeMillis()
-
+                    long duration = (endTime - startTime) / 1000
                     // 4. On écrase le '0' de TIME_MAVEN par la durée réelle
-                    env.TIME_MAVEN = String.valueOf((long)(endTime - startTime) / 1000f)
+                    env.TIME_MAVEN = String.valueOf(duration)
                     echo "⏱️ Temps d'exécution du Build Maven : ${env.TIME_MAVEN}s"
                 }
             }
@@ -144,7 +144,8 @@ pipeline {
                     echo 'Analyse SonarQube terminée'
                         // 3. Fin du chronomètre
                         long endTime = System.currentTimeMillis()
-                    env.TIME_SONAR = String.valueOf((long)(endTime - startTime)) / 1000f
+                        long duration = (endTime - startTime) / 1000
+                    env.TIME_SONAR = String.valueOf(duration)
                     echo "⏱️ Temps d'exécution de SonarQube : ${env.TIME_SONAR}s"
                 }
             }
@@ -163,8 +164,9 @@ pipeline {
                     echo 'Quality Gate passe avec succès'
 
                     long endTime = System.currentTimeMillis()
+                    long duration = (endTime - startTime) / 1000
                     // On écrase le '0' de TIME_QUALITY_GATE par la durée réelle d'attente
-                    env.TIME_QUALITY_GATE = String.valueOf((long)(endTime - startTime))
+                    env.TIME_QUALITY_GATE = String.valueOf(duration)
                     echo "⏱️ Temps d'attente du Quality Gate : ${env.TIME_QUALITY_GATE}s"
                 }
             }
@@ -183,7 +185,8 @@ pipeline {
                     bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
 
                     long endTime = System.currentTimeMillis()
-                    env.TIME_DOCKER = String.valueOf((long)(endTime - startTime))
+                    long duration = (endTime - startTime) / 1000
+                    env.TIME_DOCKER = String.valueOf(duration)
                     echo "⏱️ Temps d'exécution du Build Docker : ${env.TIME_DOCKER}s"
                 }
                 echo 'Image Docker construite avec succès'
@@ -211,7 +214,8 @@ pipeline {
                         bat "docker logout"
                     }
                     long endTime = System.currentTimeMillis()
-                    env.TIME_DOCKER_HUB = String.valueOf((long)(endTime - startTime) / 1000f)
+                    long duration = (endTime - startTime) / 1000
+                    env.TIME_DOCKER_HUB = String.valueOf(duration)
                             echo "⏱️ Temps d'exécution du Build Docker  Hub : ${env.TIME_DOCKER_HUB}s"
                 }
                 echo "Image publiee sur Docker Hub: ${DOCKER_IMAGE}:${IMAGE_TAG}"
@@ -241,7 +245,8 @@ pipeline {
                     }
 
                     long endTime = System.currentTimeMillis()
-                    env.TIME_PUSH_ON_NEXUS = String.valueOf((long)(endTime - startTime))
+                    long duration = (endTime - startTime) / 1000
+                    env.TIME_PUSH_ON_NEXUS = String.valueOf(duration)
                     echo "⏱️ Temps d'exécution du publication sur Nexus : ${env.TIME_PUSH_ON_NEXUS}s"
                 }
                 echo "✅ Image publiee: ${NEXUS_IMAGE}:${IMAGE_TAG}"
@@ -351,8 +356,9 @@ pipeline {
                     }
                     // 💡 2. FIN DU CHRONOMÈTRE DE DÉPLOIEMENT
                     long endTime = System.currentTimeMillis()
+                    long duration = (endTime - startTime) / 1000
                     // 💡 3. ON ÉCRASE LE '0' DE TIME_DEPLOY PAR LA DURÉE RÉELLE
-                    env.TIME_DEPLOY = String.valueOf((long)(endTime - startTime))
+                    env.TIME_DEPLOY = String.valueOf(duration)
                     echo "⏱️ Temps total d'exécution du Déploiement/Rollback : ${env.TIME_DEPLOY}s"
 
                 }
