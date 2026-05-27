@@ -359,7 +359,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. Calcul des métriques temporelles globales de Jenkins
-                    def buildDuration = Math.round(currentBuild.duration / 1000)
+                    def buildDuration = currentBuild.durationString.contains('s') ? (currentBuild.duration / 1000).toLong() : 0
                     def buildStartTime = new Date(currentBuild.startTimeInMillis).format('yyyy-MM-dd HH:mm:ss')
 
                     // 2. Appel de nos fonctions d'infrastructure locales (Windows 11)
@@ -583,18 +583,19 @@ def runHealthcheck(port, endpoint, maxRetries, delaySeconds) {
 }
 
 /**
- * PHASE 8 : Calcule la durée exacte entre deux repères temporels (en millisecondes)
- * et convertit le résultat en secondes entières de manière sécurisée pour la Sandbox Jenkins.
+ * PHASE 8 : Calcule la durée exacte entre deux repères temporels.
+ * Sécurisé pour la Sandbox Jenkins en utilisant un calcul sur des entiers longs primitifs.
  *
- * @param startTime  Timestamp de début en millisecondes (System.currentTimeMillis())
- * @param endTime    Timestamp de fin en millisecondes (System.currentTimeMillis())
- * @return String    Durée calculée sous forme de texte
+ * @param startTime  Timestamp de début en millisecondes
+ * @param endTime    Timestamp de fin en millisecondes
+ * @return String    Durée calculée en secondes sous forme de texte
  */
 def calculateStageDuration(startTime, endTime) {
-    // Math.round() prend un float/double et renvoie un entier sans erreur de type
-    long durationSeconds = Math.round((endTime - startTime) / 1000.0)
+    long diffMillis = endTime - startTime
+    long durationSeconds = diffMillis / 1000
     return durationSeconds.toString()
 }
+
 
 /**
  * PHASE 8 : Extrait la taille du fichier JAR généré par Maven.
