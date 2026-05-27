@@ -79,7 +79,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. On capture l'heure de départ (en millisecondes)
-                    long startTime = System.currentTimeMillis()
+                    double startTime = System.currentTimeMillis()
 
                     // 2. Recuperation du code source (sur GitHub)
                     checkout scm
@@ -88,9 +88,9 @@ pipeline {
                     echo 'Code récupère avec succès depuis GitHub'
 
                     // 3. On capture l'heure de fin
-                    long endTime = System.currentTimeMillis()
+                    double endTime = System.currentTimeMillis()
 
-                    env.TIME_CHECKOUT = calculateStageDuration(startTime, endTime)
+                    env.TIME_CHECKOUT = String.valueOf((long)((startTime - endTime) / 1000.0))
                     echo "⏱️ Temps d'exécution du Checkout : ${env.TIME_CHECKOUT}s"
                 }
             }
@@ -628,15 +628,18 @@ def getJarSizeMB() {
 
 
 /**
- * PHASE 8 : Récupère le poids de l'image Docker construite.
+ * PHASE 8 : Récupère le poids brut de l'image Docker construite.
+ * Sécurisé via PowerShell pour éliminer le prompt CMD parasite (ex: "305MB").
  *
  * @param imageName  Nom de l'image (DOCKER_IMAGE)
  * @param imageTag   Tag unique (IMAGE_TAG)
- * @return String    Taille textuelle (ex: "305MB")
+ * @return String    Taille épurée de l'image
  */
 def getDockerImageSize(imageName, imageTag) {
-    return bat(returnStdout: true, script: "docker images ${imageName}:${imageTag} --format \"{{.Size}}\"").trim()
+    def sizeStr = powershell(returnStdout: true, script: "docker images ${imageName}:${imageTag} --format '{{.Size}}'").trim()
+    return sizeStr ? sizeStr.readLines().last().trim() : "0B"
 }
+
 
 /**
  * PHASE 8 : Compte le nombre de fichiers modifiés dans le dernier commit.
