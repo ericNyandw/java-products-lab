@@ -79,7 +79,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. On capture l'heure de départ (en millisecondes)
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
 
                     // 2. Recuperation du code source (sur GitHub)
                     checkout scm
@@ -88,7 +88,7 @@ pipeline {
                     echo 'Code récupère avec succès depuis GitHub'
 
                     // 3. On capture l'heure de fin
-                    def endTime = new Date().time
+                    def endTime = System.currentTimeMillis()
 
                     env.TIME_CHECKOUT = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'exécution du Checkout : ${env.TIME_CHECKOUT}s"
@@ -104,14 +104,14 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. Départ du chronomètre Maven
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
 
                     // 2. Compilation et Packaging Maven
                     bat 'mvn clean package '
                     echo 'Build Maven termine avec succès'
 
                     // 3. Fin du chronomètre
-                    def endTime = Snew Date().time
+                    def endTime = SSystem.currentTimeMillis()
 
                     // 4. On écrase le '0' de TIME_MAVEN par la durée réelle
                     env.TIME_MAVEN = calculateStageDuration(startTime, endTime)
@@ -128,7 +128,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. Départ du chronomètre SonarQube
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
                     //Analyse de la qualité du code
                     withSonarQubeEnv('SonarQube-Local') {
                         bat """
@@ -141,7 +141,7 @@ pipeline {
                     }
                     echo 'Analyse SonarQube terminée'
                         // 3. Fin du chronomètre
-                        def endTime = new Date().time
+                        def endTime = System.currentTimeMillis()
                     env.TIME_SONAR = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'exécution de SonarQube : ${env.TIME_SONAR}s"
                 }
@@ -154,13 +154,13 @@ pipeline {
                 echo 'ETAPE 4 : Verification du Quality Gate'
                 echo '================================================'
                 script {
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
                     timeout(time: 5, unit: 'MINUTES') {
                         waitForQualityGate abortPipeline: true
                     }
                     echo 'Quality Gate passe avec succès'
 
-                    def endTime = new Date().time
+                    def endTime = System.currentTimeMillis()
                     // On écrase le '0' de TIME_QUALITY_GATE par la durée réelle d'attente
                     env.TIME_QUALITY_GATE = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'attente du Quality Gate : ${env.TIME_QUALITY_GATE}s"
@@ -174,13 +174,13 @@ pipeline {
                 echo 'ETAPE 5 : Construction de l image Docker'
                 echo '================================================'
                 script {
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
 
                     echo "Image: ${DOCKER_IMAGE}:${env.IMAGE_TAG}"
                     bat "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} ."
                     bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
 
-                    def endTime = new Date().time
+                    def endTime = System.currentTimeMillis()
                     env.TIME_DOCKER = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'exécution du Build Docker : ${env.TIME_DOCKER}s"
                 }
@@ -197,7 +197,7 @@ pipeline {
                 echo 'ETAPE 6 : Publication sur Docker Hub'
                 echo '================================================'
                 script {
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
                     // On utilise l'ID que tu as créé dans Jenkins
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USER')]) {
                         // 1. Login
@@ -208,7 +208,7 @@ pipeline {
                         // 3. Logout (Sécurité)
                         bat "docker logout"
                     }
-                    def endTime = new Date().time
+                    def endTime = System.currentTimeMillis()
                     env.TIME_DOCKER_HUB = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'exécution du Build Docker  Hub : ${env.TIME_DOCKER_HUB}s"
                 }
@@ -224,7 +224,7 @@ pipeline {
                 echo 'ETAPE 7 : Publication sur Nexus (Registry Prive)'
                 echo '================================================'
                 script {
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
                     withCredentials([usernamePassword(credentialsId: 'nexus-credentials', passwordVariable: 'NEXUS_PWD', usernameVariable: 'NEXUS_USER')]) {
                         // 1. Tag
                         bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${NEXUS_IMAGE}:${IMAGE_TAG}"
@@ -238,7 +238,7 @@ pipeline {
                         bat "docker logout ${NEXUS_REGISTRY}"
                     }
 
-                    def endTime = new Date().time
+                    def endTime = System.currentTimeMillis()
                     env.TIME_PUSH_ON_NEXUS = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps d'exécution du publication sur Nexus : ${env.TIME_PUSH_ON_NEXUS}s"
                 }
@@ -268,7 +268,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // 💡 1. DÉPART DU CHRONOMÈTRE DE DÉPLOIEMENT
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
 
                     // ════════════════════════════════════════════
                     // PHASE 1 : DÉTECTION ET AIGUILLAGE AUTOMATIQUE
@@ -348,7 +348,7 @@ pipeline {
                         error("Le déploiement a échoué. L'environnement stable d'origine (${envConfig.current}) a été maintenu.")
                     }
                     // 💡 2. FIN DU CHRONOMÈTRE DE DÉPLOIEMENT
-                    def endTime = new Date().time
+                    def endTime = System.currentTimeMillis()
                     // 💡 3. ON ÉCRASE LE '0' DE TIME_DEPLOY PAR LA DURÉE RÉELLE
                     env.TIME_DEPLOY = calculateStageDuration(startTime, endTime)
                     echo "⏱️ Temps total d'exécution du Déploiement/Rollback : ${env.TIME_DEPLOY}s"
@@ -592,12 +592,14 @@ def runHealthcheck(port, endpoint, maxRetries, delaySeconds) {
 /**
  * PHASE 8 : Calcule la durée exacte entre deux repères temporels.
  *
- * @param startTime  Nombre entier long (new Date().time)
- * @param endTime    Nombre entier long (new Date().time)
+ * @param startTime  Nombre entier long (System.currentTimeMillis())
+ * @param endTime    Nombre entier long (System.currentTimeMillis())
  * @return String    Durée en secondes
  */
 def calculateStageDuration(startTime, endTime) {
-    long diffSeconds = (endTime - startTime) / 1000
+    long start = (long) startTime
+    long end = (long) endTime
+    long diffSeconds = (end - start) / 1000
     return diffSeconds.toString()
 }
 
