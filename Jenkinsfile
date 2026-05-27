@@ -67,8 +67,6 @@ pipeline {
         TIME_MAVEN = '0'
         TIME_SONAR = '0'
         TIME_DOCKER = '0'
-        TIME_DOCKER_HUB = '0'
-        TIME_PUSH_ON_NEXUS = '0'
         TIME_DEPLOY = '0'
 
     }
@@ -81,7 +79,7 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. On capture l'heure de départ (en millisecondes)
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
 
                     // 2. Recuperation du code source (sur GitHub)
                     checkout scm
@@ -90,7 +88,7 @@ pipeline {
                     echo 'Code récupère avec succès depuis GitHub'
 
                     // 3. On capture l'heure de fin
-                    def endTime = new Date().time
+                    def endTime = System.currentTimeMillis()
 
                     // 4. On calcule et on écrase le '0' de la variable globale
                     env.TIME_CHECKOUT = calculateStageDuration(startTime, endTime)
@@ -107,14 +105,14 @@ pipeline {
                 echo '================================================'
                 script {
                     // 1. Départ du chronomètre Maven
-                    def startTime = new Date().time
+                    def startTime = System.currentTimeMillis()
 
                     // 2. Compilation et Packaging Maven
                     bat 'mvn clean package '
                     echo 'Build Maven termine avec succès'
 
                     // 3. Fin du chronomètre
-                    def endTime = new Date().time
+                    def endTime = System.currentTimeMillis()
 
                     // 4. On écrase le '0' de TIME_MAVEN par la durée réelle
                     env.TIME_MAVEN = calculateStageDuration(startTime, endTime)
