@@ -111,7 +111,7 @@ pipeline {
                     echo 'Build Maven termine avec succès'
 
                     // 3. Fin du chronomètre
-                    def endTime = SSystem.currentTimeMillis()
+                    def endTime = System.currentTimeMillis()
 
                     // 4. On écrase le '0' de TIME_MAVEN par la durée réelle
                     env.TIME_MAVEN = calculateStageDuration(startTime, endTime)
