@@ -57,6 +57,18 @@ pipeline {
         BLUE_CONTAINER = "${APP_NAME}-blue"
         GREEN_CONTAINER = "${APP_NAME}-green"
         HEALTH_ENDPOINT = '/actuator/health'
+
+        // Configuration du Monitoring Grafana & Résilience
+        METRICS_FILE = 'build-metrics.json'
+        MAX_HEALTH_RETRIES = '12'
+
+        // Chronomètres des étapes (Initialisés à 0)
+        TIME_CHECKOUT = '0'
+        TIME_MAVEN = '0'
+        TIME_SONAR = '0'
+        TIME_DOCKER = '0'
+        TIME_DEPLOY = '0'
+
     }
 
     stages {
@@ -65,28 +77,60 @@ pipeline {
                 echo '================================================'
                 echo 'ETAPE 1 : Recuperation du code source'
                 echo '================================================'
-                checkout scm
-                echo "Branch: ${env.GIT_BRANCH}"
-                echo "Commit: ${env.GIT_COMMIT}"
-                echo 'Code récupère avec succès depuis GitHub'
+                script {
+                    // 1. On capture l'heure de départ (en millisecondes)
+                    def startTime = System.currentTimeMillis()
+
+                    // 2. Recuperation du code source (sur GitHub)
+                    checkout scm
+                    echo "Branch: ${env.GIT_BRANCH}"
+                    echo "Commit: ${env.GIT_COMMIT}"
+                    echo 'Code récupère avec succès depuis GitHub'
+
+                    // 3. On capture l'heure de fin
+                    def endTime = System.currentTimeMillis()
+
+                    // 4. On calcule et on écrase le '0' de la variable globale
+                    env.TIME_CHECKOUT = calculateStageDuration(startTime, endTime)
+                    echo "⏱️ Temps d'exécution du Checkout : ${env.TIME_CHECKOUT}s"
+                }
             }
         }
+
 
         stage('Build Maven') {
             steps {
                 echo '================================================'
                 echo 'ETAPE 2 : Compilation et Packaging Maven'
                 echo '================================================'
-                bat 'mvn clean package '
-                echo 'Build Maven termine avec succès'
+                script {
+                    // 1. Départ du chronomètre Maven
+                    def startTime = System.currentTimeMillis()
+
+                    // 2. Compilation et Packaging Maven
+                    bat 'mvn clean package '
+                    echo 'Build Maven termine avec succès'
+
+                    // 3. Fin du chronomètre
+                    def endTime = System.currentTimeMillis()
+
+                    // 4. On écrase le '0' de TIME_MAVEN par la durée réelle
+                    env.TIME_MAVEN = calculateStageDuration(startTime, endTime)
+                    echo "⏱️ Temps d'exécution du Build Maven : ${env.TIME_MAVEN}s"
+                }
             }
         }
+
 
         stage('SonarQube Analysis') {
             steps {
                 echo '================================================'
                 echo 'ETAPE 3 : Analyse de la qualité du code'
                 echo '================================================'
+                script {
+                    // 1. Départ du chronomètre SonarQube
+                    def startTime = System.currentTimeMillis()
+                    //Analyse de la qualité du code
                 withSonarQubeEnv('SonarQube-Local') {
                     bat """
                         mvn sonar:sonar ^
@@ -97,6 +141,13 @@ pipeline {
                     """
                 }
                 echo 'Analyse SonarQube terminée'
+                    // 3. Fin du chronomètre
+                    def endTime = System.currentTimeMillis()
+
+                    // 4. On écrase le '0' de TIME_SONAR par la durée réelle
+                    env.TIME_SONAR = calculateStageDuration(startTime, endTime)
+                    echo "⏱️ Temps d'exécution de SonarQube : ${env.TIME_SONAR}s"
+                }
             }
         }
 
@@ -105,10 +156,18 @@ pipeline {
                 echo '================================================'
                 echo 'ETAPE 4 : Verification du Quality Gate'
                 echo '================================================'
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                script {
+                    def startTime = System.currentTimeMillis()
+                    timeout(time: 5, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: true
+                    }
+                    echo 'Quality Gate passe avec succès'
+
+                    def endTime = System.currentTimeMillis()
+                    // On écrase le '0' de TIME_QUALITY_GATE par la durée réelle d'attente
+                    env.TIME_QUALITY_GATE = calculateStageDuration(startTime, endTime)
+                    echo "⏱️ Temps d'attente du Quality Gate : ${env.TIME_QUALITY_GATE}s"
                 }
-                echo 'Quality Gate passe avec succès'
             }
         }
 
@@ -118,9 +177,15 @@ pipeline {
                 echo 'ETAPE 5 : Construction de l image Docker'
                 echo '================================================'
                 script {
-                    echo "Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                    def startTime = System.currentTimeMillis()
+
+                    echo "Image: ${DOCKER_IMAGE}:${env.IMAGE_TAG}"
                     bat "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} ."
                     bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
+
+                    def endTime = System.currentTimeMillis()
+                    env.TIME_DOCKER = calculateStageDuration(startTime, endTime)
+                    echo "⏱️ Temps d'exécution du Build Docker : ${env.TIME_DOCKER}s"
                 }
                 echo 'Image Docker construite avec succès'
             }
@@ -196,6 +261,9 @@ pipeline {
                 echo 'ETAPE 9 : Déploiement Blue/Green avec Rollback Automatique'
                 echo '================================================'
                 script {
+                    // 💡 1. DÉPART DU CHRONOMÈTRE DE DÉPLOIEMENT
+                    def startTime = System.currentTimeMillis()
+
                     // ════════════════════════════════════════════
                     // PHASE 1 : DÉTECTION ET AIGUILLAGE AUTOMATIQUE
                     // ════════════════════════════════════════════
@@ -273,11 +341,80 @@ pipeline {
                         // On force la coupure du pipeline en erreur pour alerter l'équipe
                         error("Le déploiement a échoué. L'environnement stable d'origine (${envConfig.current}) a été maintenu.")
                     }
+                    // 💡 2. FIN DU CHRONOMÈTRE DE DÉPLOIEMENT
+                    def endTime = System.currentTimeMillis()
+                    // 💡 3. ON ÉCRASE LE '0' DE TIME_DEPLOY PAR LA DURÉE RÉELLE
+                    env.TIME_DEPLOY = calculateStageDuration(startTime, endTime)
+                    echo "⏱️ Temps total d'exécution du Déploiement/Rollback : ${env.TIME_DEPLOY}s"
 
                 }
                 echo "✅ Processus de déploiement et de vérification terminé."
             }
         }
+
+        stage('Collect Metrics') {
+            steps {
+                echo '================================================'
+                echo 'ETAPE 10 : Collection des Métriques Réelles'
+                echo '================================================'
+                script {
+                    // 1. Calcul des métriques temporelles globales de Jenkins
+                    def buildDuration = (currentBuild.duration / 1000).round(0)
+                    def buildStartTime = new Date(currentBuild.startTimeInMillis).format('yyyy-MM-dd HH:mm:ss')
+
+                    // 2. Appel de nos fonctions d'infrastructure locales (Windows 11)
+                    def jarSizeMB = getJarSizeMB()
+                    def dockerSize = getDockerImageSize(DOCKER_IMAGE, IMAGE_TAG)
+                    def changedFiles = getGitChangedFiles()
+                    def commitAuthor = getGitAuthor() // 💡 Traçabilité de l'auteur
+
+                    echo "⏱️ Durée totale réelle du pipeline : ${buildDuration}s"
+                    echo "📦 Poids réel du fichier JAR : ${jarSizeMB} MB"
+                    echo "🐳 Poids réel de l'image Docker : ${dockerSize}"
+                    echo "📝 Nombre de fichiers modifiés : ${changedFiles}"
+                    echo "👤 Auteur du commit : ${commitAuthor}"
+
+                    // 3. Génération du payload JSON structuré pour Grafana
+                    def metricsJson = """
+{
+  "build_number": ${env.BUILD_VERSION},
+  "git_commit": "${env.GIT_COMMIT_SHORT}",
+  "branch": "${env.GIT_BRANCH}",
+  "author": "${commitAuthor}",
+  "duration_seconds": ${buildDuration},
+  "start_time": "${buildStartTime}",
+  "stage_durations": {
+    "checkout_seconds": ${env.TIME_CHECKOUT},
+    "maven_build_seconds": ${env.TIME_MAVEN},
+    "sonarqube_seconds": ${env.TIME_SONAR},
+    "quality_gate_seconds": ${env.TIME_QUALITY_GATE},
+    "docker_build_seconds": ${env.TIME_DOCKER},
+    "deployment_seconds": ${env.TIME_DEPLOY}
+  },
+  "artifacts": {
+    "jar_size_mb": ${jarSizeMB},
+    "docker_image_size": "${dockerSize}"
+  },
+  "git": {
+    "changed_files": ${changedFiles}
+  },
+  "metadata": {
+    "registry_target": "${params.REGISTRY_TARGET}",
+    "quality_gate": "PASSED",
+    "deploy_triggered": ${params.DEPLOY_APP}
+  }
+}
+                    """.trim()
+
+                    // 4. Écriture physique et Archivage officiel de la donnée isolée
+                    writeFile file: "${METRICS_FILE}", text: metricsJson
+                    archiveArtifacts artifacts: "${METRICS_FILE}", fingerprint: true
+                    echo "💾 Métriques sauvegardées avec succès dans l'artéfact ${METRICS_FILE}"
+                }
+            }
+        }
+
+
 
     }
 
@@ -444,5 +581,62 @@ def runHealthcheck(port, endpoint, maxRetries, delaySeconds) {
     }
     return healthy
 }
+
+/**
+ * PHASE 8 : Calcule la durée exacte entre deux repères temporels (en millisecondes)
+ * et convertit le résultat en secondes.
+ *
+ * @param startTime Timestamp de début en millisecondes (System.currentTimeMillis())
+ * @param endTime Timestamp de fin en millisecondes (System.currentTimeMillis())
+ * @return String    Durée calculée sous forme de texte pour Jenkins et le JSON
+ */
+static def calculateStageDuration(startTime, endTime) {
+    return ((endTime - startTime) / 1000).round(0).toString()
+}
+/**
+ * PHASE 8 : Extrait la taille du fichier JAR généré par Maven.
+ * Compatible avec l'environnement Windows 11.
+ *
+ * @return Double Taille en MB
+ */
+def getJarSizeMB() {
+    def jarFile = bat(returnStdout: true, script: "dir /b target\\*.jar").trim()
+    if (!jarFile || jarFile.contains("File Not Found")) return 0.0
+
+    def jarSizeOctets = bat(returnStdout: true, script: "for %I in (target\\${jarFile}) do @echo %~zI").trim()
+    return (jarSizeOctets.toLong() / 1024 / 1024).round(2)
+}
+
+/**
+ * PHASE 8 : Récupère le poids de l'image Docker construite.
+ *
+ * @param imageName  Nom de l'image (DOCKER_IMAGE)
+ * @param imageTag   Tag unique (IMAGE_TAG)
+ * @return String    Taille textuelle (ex: "305MB")
+ */
+def getDockerImageSize(imageName, imageTag) {
+    return bat(returnStdout: true, script: "docker images ${imageName}:${imageTag} --format \"{{.Size}}\"").trim()
+}
+
+/**
+ * PHASE 8 : Compte le nombre de fichiers modifiés dans le dernier commit.
+ *
+ * @return Integer Nombre de fichiers
+ */
+def getGitChangedFiles() {
+    def count = bat(returnStdout: true, script: "git diff --name-only HEAD~1 HEAD 2>nul | find /c /v \"\" || echo 0").trim()
+    return count.toInteger()
+}
+
+/**
+ * PHASE 8 : Récupère le nom de l'auteur du dernier commit Git pour la traçabilité.
+ *
+ * @return String Nom de l'auteur
+ */
+def getGitAuthor() {
+    return bat(returnStdout: true, script: "git log -1 --format=\"%an\"").trim()
+}
+
+
 
 
