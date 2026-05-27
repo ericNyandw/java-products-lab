@@ -90,7 +90,7 @@ pipeline {
                     // 3. On capture l'heure de fin
                     double endTime = System.currentTimeMillis()
 
-                    env.TIME_CHECKOUT = String.valueOf((long)((startTime - endTime) / 1000.0))
+                    env.TIME_CHECKOUT = String.valueOf((long)((endTime - startTime) / 1000.0))
                     echo "⏱️ Temps d'exécution du Checkout : ${env.TIME_CHECKOUT}s"
                 }
             }
