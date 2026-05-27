@@ -70,7 +70,6 @@ pipeline {
         TIME_DEPLOY = '0'
 
     }
-
     stages {
         stage('Checkout') {
             steps {
