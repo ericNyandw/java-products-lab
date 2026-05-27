@@ -1,3 +1,14 @@
+// Variables globales Groovy dynamiques pour le suivi SRE (Chronomètres)
+import groovy.transform.Field
+@Field String timeCheckout = '0'
+@Field String timeMaven = '0'
+@Field String timeSonar = '0'
+@Field String timeQualityGate = '0'
+@Field String timeDocker = '0'
+@Field String timeDockerHUB = '0'
+@Field String timePushOnNexus = '0'
+@Field String timeDeploy = '0'
+
 pipeline {
     agent any
 
@@ -63,14 +74,14 @@ pipeline {
         MAX_HEALTH_RETRIES = '12'
 
         // Chronomètres des étapes (Initialisés à 0)
-        TIME_CHECKOUT = '0'
-        TIME_MAVEN = '0'
-        TIME_SONAR = '0'
-        TIME_DOCKER = '0'
-        TIME_QUALITY_GATE = '0'
-        TIME_DOCKER_HUB = '0'
-        TIME_PUSH_ON_NEXUS = '0'
-        TIME_DEPLOY = '0'
+       // TIME_CHECKOUT = '0'
+       // TIME_MAVEN = '0'
+       // TIME_SONAR = '0'
+       // TIME_DOCKER = '0'
+       // TIME_QUALITY_GATE = '0'
+       // TIME_DOCKER_HUB = '0'
+       // TIME_PUSH_ON_NEXUS = '0'
+        // TIME_DEPLOY = '0'
 
     }
     stages {
@@ -91,9 +102,8 @@ pipeline {
 
                     // 3. On capture l'heure de fin
                     double endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime)
-                    env.TIME_CHECKOUT =  String.valueOf(duration)
-                    echo "⏱️ Temps d'exécution du Checkout : ${env.TIME_CHECKOUT}s"
+                    timeCheckout =  String.valueOf((endTime - startTime) / 1000)
+                    echo "⏱️ Temps d'exécution du Checkout : ${timeCheckout}s"
                 }
             }
         }
@@ -114,10 +124,9 @@ pipeline {
 
                     // 3. Fin du chronomètre
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime)
                     // 4. On écrase le '0' de TIME_MAVEN par la durée réelle
-                    env.TIME_MAVEN = String.valueOf(duration)
-                    echo "⏱️ Temps d'exécution du Build Maven : ${env.TIME_MAVEN}s"
+                    timeMaven = String.valueOf((endTime - startTime) / 1000)
+                    echo "⏱️ Temps d'exécution du Build Maven : ${timeMaven}s"
                 }
             }
         }
@@ -144,9 +153,8 @@ pipeline {
                     echo 'Analyse SonarQube terminée'
                         // 3. Fin du chronomètre
                         long endTime = System.currentTimeMillis()
-                        long duration = (endTime - startTime)
-                    env.TIME_SONAR = String.valueOf(duration)
-                    echo "⏱️ Temps d'exécution de SonarQube : ${env.TIME_SONAR}s"
+                    timeSonar = String.valueOf((endTime - startTime) / 1000)
+                    echo "⏱️ Temps d'exécution de SonarQube : ${timeSonar}s"
                 }
             }
         }
@@ -164,10 +172,9 @@ pipeline {
                     echo 'Quality Gate passe avec succès'
 
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime)
                     // On écrase le '0' de TIME_QUALITY_GATE par la durée réelle d'attente
-                    env.TIME_QUALITY_GATE = String.valueOf(duration)
-                    echo "⏱️ Temps d'attente du Quality Gate : ${env.TIME_QUALITY_GATE}s"
+                    timeQualityGate = String.valueOf((endTime - startTime) / 1000)
+                    echo "⏱️ Temps d'attente du Quality Gate : ${timeQualityGate}s"
                 }
             }
         }
@@ -185,9 +192,8 @@ pipeline {
                     bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
 
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime)
-                    env.TIME_DOCKER = String.valueOf(duration)
-                    echo "⏱️ Temps d'exécution du Build Docker : ${env.TIME_DOCKER}s"
+                    timeDocker = String.valueOf((endTime - startTime) / 1000)
+                    echo "⏱️ Temps d'exécution du Build Docker : ${timeDocker}s"
                 }
                 echo 'Image Docker construite avec succès'
             }
@@ -214,9 +220,8 @@ pipeline {
                         bat "docker logout"
                     }
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime)
-                    env.TIME_DOCKER_HUB = String.valueOf(duration)
-                            echo "⏱️ Temps d'exécution du Build Docker  Hub : ${env.TIME_DOCKER_HUB}s"
+                    timeDockerHUB =String.valueOf((endTime - startTime) / 1000)
+                            echo "⏱️ Temps d'exécution du Build Docker  Hub : ${timeDockerHUB}s"
                 }
                 echo "Image publiee sur Docker Hub: ${DOCKER_IMAGE}:${IMAGE_TAG}"
             }
@@ -245,9 +250,8 @@ pipeline {
                     }
 
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime)
-                    env.TIME_PUSH_ON_NEXUS = String.valueOf(duration)
-                    echo "⏱️ Temps d'exécution du publication sur Nexus : ${env.TIME_PUSH_ON_NEXUS}s"
+                    timePushOnNexus = String.valueOf((endTime - startTime) / 1000)
+                    echo "⏱️ Temps d'exécution du publication sur Nexus : ${timePushOnNexus}s"
                 }
                 echo "✅ Image publiee: ${NEXUS_IMAGE}:${IMAGE_TAG}"
             }
@@ -356,10 +360,9 @@ pipeline {
                     }
                     // 💡 2. FIN DU CHRONOMÈTRE DE DÉPLOIEMENT
                     long endTime = System.currentTimeMillis()
-                    long duration = (endTime - startTime) / 1000
                     // 💡 3. ON ÉCRASE LE '0' DE TIME_DEPLOY PAR LA DURÉE RÉELLE
-                    env.TIME_DEPLOY = String.valueOf(duration)
-                    echo "⏱️ Temps total d'exécution du Déploiement/Rollback : ${env.TIME_DEPLOY}s"
+                    timeDeploy = String.valueOf((endTime - startTime) / 1000)
+                    echo "⏱️ Temps total d'exécution du Déploiement/Rollback : ${timeDeploy}s"
 
                 }
                 echo "✅ Processus de déploiement et de vérification terminé."
@@ -399,14 +402,14 @@ pipeline {
                           "duration_seconds": ${buildDuration},
                           "start_time": "${buildStartTime}",
                           "stage_durations": {
-                            "checkout_ms": ${env.TIME_CHECKOUT},
-                            "maven_build_ms": ${env.TIME_MAVEN},
-                            "sonarqube_ms": ${env.TIME_SONAR},
-                            "quality_gate_ms": ${env.TIME_QUALITY_GATE},
-                            "docker_build_ms": ${env.TIME_DOCKER},
-                            "docker_build_Hub_ms": ${env.TIME_DOCKER_HUB},
-                            "Push_on_NEXUS_ms": ${env.TIME_PUSH_ON_NEXUS},
-                            "deployment_ms": ${env.TIME_DEPLOY}
+                            "checkout_ms": ${timeCheckout},
+                            "maven_build_ms": ${timeMaven},
+                            "sonarqube_ms": ${timeSonar},
+                            "quality_gate_ms": ${timeQualityGate},
+                            "docker_build_ms": ${timeDocker},
+                            "docker_build_Hub_ms": ${timeDockerHUB},
+                            "Push_on_NEXUS_ms": ${timePushOnNexus},
+                            "deployment_ms": ${timeDeploy}
                           },
                           "artifacts": {
                             "jar_size_mb": ${jarSizeMB},
