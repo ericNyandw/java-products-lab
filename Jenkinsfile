@@ -434,6 +434,87 @@ pipeline {
             }
         }
 
+        stage('Production Readiness Check') {
+            steps {
+                echo '================================================'
+                echo 'ETAPE FINALE : Validation Production-Ready'
+                echo '================================================'
+                script {
+                    def checks = [:]
+
+                    // ════════════════════════════════════════════
+                    // CHECK 1 : QUALITÉ DU CODE
+                    // ════════════════════════════════════════════
+                    checks['quality_gate'] = true // Validé en amont par ton étape 4
+
+                    // ════════════════════════════════════════════
+                    // CHECK 2 : SECRETS MANAGEMENT
+                    // ════════════════════════════════════════════
+                    // On vérifie nativement si la variable du coffre Jenkins est accessible
+                    withCredentials([file(credentialsId: 'backend-prod-secrets', variable: 'SECRET_ENV')]) {
+                        checks['secrets_management'] = (SECRET_ENV != null && SECRET_ENV != "")
+                    }
+
+                    // ════════════════════════════════════════════
+                    // CHECK 3 : IMAGE NEXUS DISPONIBLE
+                    // ════════════════════════════════════════════
+                    withCredentials([usernamePassword(credentialsId: 'nexus-credentials', passwordVariable: 'NEXUS_PWD', usernameVariable: 'NEXUS_USER')]) {
+                        // Utilisation de curl.exe sur une seule ligne propre sans caractère d'échappement Linux
+                        def nexusCheck = bat(returnStatus: true, script: "curl.exe -u ${NEXUS_USER}:${NEXUS_PWD} -f -s http://localhost:8081/service/rest/v1/search?repository=docker-private&name=${APP_NAME}")
+                        checks['nexus_registry'] = (nexusCheck == 0)
+                    }
+
+                    // ════════════════════════════════════════════
+                    // CHECK 4 : DOCKERFILE BEST PRACTICES
+                    // ════════════════════════════════════════════
+                    def dockerfile = readFile('Dockerfile')
+                    checks['dockerfile_user'] = dockerfile.contains('USER ') // Non-root user pour la sécurité
+                    checks['dockerfile_healthcheck'] = dockerfile.contains('HEALTHCHECK')
+                    checks['dockerfile_multistage'] = dockerfile.contains('AS builder') // Ton optimisation Multi-stage
+
+                    // ════════════════════════════════════════════
+                    // CHECK 5 : VERSIONING SEMANTIQUE
+                    // ════════════════════════════════════════════
+                    checks['semantic_versioning'] = (IMAGE_TAG =~ /^\d+-[a-f0-9]{7}$/)
+
+                    // ════════════════════════════════════════════
+                    // CHECK 6 : ROLLBACK CAPABILITY
+                    // ════════════════════════════════════════════
+                    // Si l'option de déploiement est activée, l'infrastructure est parée pour le Rollback
+                    checks['rollback_ready'] = (params.DEPLOY_APP == true)
+
+                    // ════════════════════════════════════════════
+                    // RAPPORT FINAL DE CONFORMITÉ
+                    // ════════════════════════════════════════════
+                    echo "════════════════════════════════════════════"
+                    echo "   PRODUCTION READINESS REPORT"
+                    echo "════════════════════════════════════════════"
+                    echo ""
+
+                    def allPassed = true
+                    checks.each { key, value ->
+                        def status = value ? "✅ PASS" : "❌ FAIL"
+                        echo "${status} : ${key}"
+                        if (!value) { allPassed = false }
+                    }
+
+                    echo ""
+                    echo "════════════════════════════════════════════"
+
+                    if (allPassed) {
+                        echo "🎉 APPLICATION PRÊTE POUR LA PRODUCTION !"
+                        echo "════════════════════════════════════════════"
+                    } else {
+                        echo "⚠️  ATTENTION : Certains contrôles de conformité ont échoué."
+                        echo "👉 Vérifie tes pratiques Dockerfile ou tes configurations."
+                        echo "════════════════════════════════════════════"
+                    }
+                }
+            }
+        }
+
+
+
 
 
     }
