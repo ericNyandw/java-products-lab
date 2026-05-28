@@ -436,65 +436,11 @@ pipeline {
 
         stage('Production Readiness Check') {
             steps {
-                echo '================================================'
-                echo 'ETAPE FINALE : Validation Production-Ready'
-                echo '================================================'
                 script {
-                    def checks = [:]
-
-                    // CHECK 1 : QUALITÉ DU CODE
-                    checks['quality_gate'] = true
-
-                    // CHECK 2 : SECRETS MANAGEMENT
-                    withCredentials([file(credentialsId: 'backend-prod-secrets', variable: 'SECRET_ENV')]) {
-                        checks['secrets_management'] = (SECRET_ENV != null && SECRET_ENV != "")
-                    }
-
-                    // CHECK 3 : IMAGE NEXUS DISPONIBLE
-                    withCredentials([usernamePassword(credentialsId: 'nexus-credentials', passwordVariable: 'NEXUS_PWD', usernameVariable: 'NEXUS_USER')]) {
-                        // 💡 L'intelligence Senior : On entoure l'URL de guillemets doubles pour protéger le '&' sous Windows
-                        def nexusCheck = bat(returnStatus: true, script: "curl.exe -u ${NEXUS_USER}:${NEXUS_PWD} -f -s \"http://localhost:8081/service/rest/v1/search?repository=docker-private&name=${APP_NAME}\"")
-                        checks['nexus_registry'] = (nexusCheck == 0)
-                    }
-
-                    // CHECK 4 : DOCKERFILE BEST PRACTICES
-                    def dockerfile = readFile('Dockerfile')
-                    checks['dockerfile_user'] = dockerfile.contains('USER ')
-                    checks['dockerfile_healthcheck'] = dockerfile.contains('HEALTHCHECK')
-
-                    // 💡 L'intelligence Senior : Recherche insensible à la casse (AS build, as builder, etc.)
-                    checks['dockerfile_multistage'] = (dockerfile.toLowerCase().contains('as builder') || dockerfile.toLowerCase().contains('as build'))
-
-                    // CHECK 5 : VERSIONING SEMANTIQUE
-                    checks['semantic_versioning'] = (IMAGE_TAG =~ /^\d+-[a-f0-9]{7}$/)
-
-                    // CHECK 6 : ROLLBACK CAPABILITY
-                    checks['rollback_ready'] = (params.DEPLOY_APP == true)
-
-                    // RAPPORT FINAL DE CONFORMITÉ
-                    echo "════════════════════════════════════════════"
-                    echo "   PRODUCTION READINESS REPORT"
-                    echo "════════════════════════════════════════════"
-                    echo ""
-
-                    def allPassed = true
-                    checks.each { key, value ->
-                        def status = value ? "✅ PASS" : "❌ FAIL"
-                        echo "${status} : ${key}"
-                        if (!value) { allPassed = false }
-                    }
-
-                    echo ""
-                    echo "════════════════════════════════════════════"
-
-                    if (allPassed) {
-                        echo "🎉 APPLICATION PRÊTE POUR LA PRODUCTION !"
-                        echo "════════════════════════════════════════════"
-                    } else {
-                        echo "⚠️  ATTENTION : Certains contrôles de conformité ont échoué."
-                        echo "👉 Note : rollback_ready sera FAIL si DEPLOY_APP n'est pas coché."
-                        echo "════════════════════════════════════════════"
-                    }
+                    // Chargement du module externe
+                    def readinessCheck = load 'monitoring/readiness.groovy'
+                    // Exécution dynamique avec injection du contexte
+                    readinessCheck(this, params, APP_NAME, DOCKER_IMAGE, IMAGE_TAG, REPOSITORY_DOCKER)
                 }
             }
         }
